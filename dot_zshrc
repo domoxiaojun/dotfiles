@@ -1,0 +1,87 @@
+# =========================
+# Locale
+# =========================
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+
+
+# =========================
+# Completion paths（必须在 compinit 之前）
+# =========================
+
+# Docker CLI completion
+fpath=(/Users/domo/.docker/completions $fpath)
+
+# Homebrew zsh-completions
+if type brew &>/dev/null; then
+  fpath=($(brew --prefix)/share/zsh-completions $fpath)
+fi
+
+
+# =========================
+# Completion init（只调用一次）
+# =========================
+autoload -Uz compinit
+compinit
+
+
+# =========================
+# zsh plugins
+# =========================
+source /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+source /opt/homebrew/opt/zsh-fast-syntax-highlighting/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh
+source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+
+# =========================
+# Prompt
+# =========================
+eval "$(starship init zsh)"
+
+
+# =========================
+# Convenience aliases
+# =========================
+alias python=python3
+alias pip=pip3
+alias bash5='/opt/homebrew/bin/bash'
+
+# =========================
+# 终端美化工具别名（24-bit 真彩色）
+# =========================
+# lsd - 彩色 ls（带图标和文件类型）
+alias ls='lsd'
+alias ll='lsd -l'
+alias la='lsd -la'
+alias lt='lsd --tree'
+
+# bat - 彩色 cat（语法高亮）
+# --paging=never: 不使用分页器，直接输出（像 cat 一样）
+alias cat='bat --style=plain --paging=never'
+alias catt='bat --paging=never'  # 带行号和 git 状态，无分页
+alias batp='bat'  # 需要分页时用这个
+
+# glow - Markdown 渲染
+alias md='glow'
+
+# btop - 系统监控（替代 top/htop）
+alias top='btop'
+
+
+# =========================
+# Python / pipx
+# =========================
+export PIPX_DEFAULT_PYTHON=/opt/homebrew/bin/python3.12
+
+
+# =========================
+# PATH additions
+# =========================
+export PATH="/Users/domo/.antigravity/antigravity/bin:$PATH"
+
+
+# =========================
+# zsh-autosuggestions config
+# =========================
+ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=8'

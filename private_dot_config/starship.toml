@@ -1,0 +1,97 @@
+#ormat = """
+#username\
+#hostname\
+#directory\
+#git_branch\
+#git_state\
+#git_status\
+#cmd_duration\
+#line_break\
+#python\
+#character"""
+#
+#directory]
+#tyle = "blue"
+#ish_style_pwd_dir_length = 1
+#
+#character]
+#uccess_symbol = "[❯](purple)"
+#rror_symbol = "[❯](red)"
+#icmd_symbol = "[❮](green)"
+#
+#git_branch]
+#ormat = "[$branch]($style)"
+#tyle = "bright-black"
+#
+#git_status]
+#ormat = "[[(*$conflicted$untracked$modified$staged$renamed$deleted)](218) ($ahead_behind$stashed)]($style)"
+#tyle = "cyan"
+#onflicted = "​"
+#ntracked = "​"
+#odified = "​"
+#taged = "​"
+#enamed = "​"
+#eleted = "​"
+#tashed = "≡"
+#
+#git_state]
+#ormat = '\([$state( $progress_current/$progress_total)]($style)\) '
+#tyle = "bright-black"
+#
+#cmd_duration]
+#ormat = "[$duration]($style) "
+#tyle = "yellow"
+#
+#python]
+#ormat = "[$virtualenv]($style)"
+#tyle = "bright-black"
+#
+
+# 优化后的 format，加入了 [ ] 包裹模块，增加逻辑感
+command_timeout = 2000
+
+format = """
+$os\
+$username\
+$hostname\
+$directory\
+$git_branch\
+$git_state\
+$git_status\
+$python\
+$lua\
+$nodejs\
+$line_break\
+$character"""
+
+[directory]
+style = "bold blue"
+# 增加一个文件夹图标，Ghostty 渲染得非常漂亮
+format = "[$path]($style)[$read_only]($read_only_style) "
+truncation_length = 3
+fish_style_pwd_dir_length = 4
+read_only = " 󰌾"
+#truncate_to_repo = true # 在 Git 仓库中缩短路径
+
+[git_status]
+# 保持简洁，但使用易读的符号
+format = '([\[$all_status$ahead_behind\]]($style) )'
+style = "cyan"
+conflicted = "󰞇 "
+ahead = "⇡"
+behind = "⇣"
+diverged = "⇕"
+untracked = "? "
+stashed = "≡ "
+modified = "! "
+staged = "+ "
+renamed = "» "
+deleted = "✘ "
+
+[hostname]
+ssh_only = true # 仅在 SSH 时显示
+format = "[$hostname]($style) "
+
+[username]
+show_always = false # 仅在非默认用户或 SSH 时显示
+

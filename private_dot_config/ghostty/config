@@ -1,0 +1,117 @@
+## 基础快捷键
+#keybind = shift+enter=text:\n
+#
+## 主题
+#theme = catppuccin-mocha
+## 字体与排版
+#font-family = "MesloLGS Nerd Font Mono"
+#font-size = 13.5
+## 调大这个数值可以增加行间距。30% 会让间距非常舒适，不再紧凑。
+#adjust-cell-height = 30%
+#
+## 窗口外观 - 调高不透明度到 0.95，确保字体清晰可见
+#background-opacity = 0.95
+#background-blur-radius = 25
+#macos-titlebar-style = native
+#
+## 边距
+#window-padding-x = 16
+#window-padding-y = 12
+#window-padding-balance = true
+#
+## 光标 (修正了颜色值后的注释报错)
+#cursor-style = block
+#cursor-style-blink = true
+#cursor-color = #7aa2f7
+#
+#
+## 其它细节
+#mouse-hide-while-typing = true
+#window-save-state = always
+
+# --- 核心视觉 ---
+theme = catppuccin-mocha
+font-family = "MesloLGS Nerd Font Mono"
+font-size = 13.5
+
+# 对应 adjust-cell-height = 30%
+# Ghostty 使用倍数，1.3 即增加 30% 的高度
+adjust-cell-height = 10%
+
+# --- 窗口与透明度 ---
+background-opacity = 0.95
+background-blur = true
+# macOS 专属：使用 native 或 ghostty 风格的标题栏
+macos-titlebar-style = native
+
+# 边距
+window-padding-x = 16
+window-padding-y = 12
+window-inherit-working-directory = true
+
+# --- 光标 ---
+cursor-style = block
+cursor-style-blink = true
+cursor-color = #7aa2f7
+shell-integration-features = no-cursor
+
+# --- 鼠标与交互 ---
+mouse-hide-while-typing = true
+# 复制时去除末尾换行
+copy-on-select = true
+clipboard-trim-trailing-spaces = true
+
+# --- 终端类型（支持 tmux 24-bit 颜色）---
+term = xterm-256color
+
+# --- 性能优化 ---
+scrollback-limit = 10000
+
+# ========================================
+# 快捷键配置
+# ========================================
+
+# --- 换行 ---
+keybind = shift+enter=text:\n
+
+# --- 分屏工作流优化 ---
+# 创建分屏
+keybind = super+d=new_split:right
+keybind = super+shift+d=new_split:down
+
+# 四方向切换分屏
+keybind = super+ctrl+h=goto_split:left
+keybind = super+ctrl+l=goto_split:right
+keybind = super+ctrl+j=goto_split:down
+keybind = super+ctrl+k=goto_split:up
+
+# 分屏大小调整
+keybind = super+ctrl+equal=resize_split:up,10
+keybind = super+ctrl+minus=resize_split:down,10
+keybind = super+equal=equalize_splits
+
+# 关闭分屏
+keybind = super+shift+w=close_surface
+
+# --- 标签页管理 ---
+# 创建/关闭标签页
+keybind = super+t=new_tab
+keybind = super+w=close_tab
+
+# 切换标签页
+keybind = super+shift+left=previous_tab
+keybind = super+shift+right=next_tab
+
+# 快速跳转标签页（1-9）
+keybind = super+1=goto_tab:1
+keybind = super+2=goto_tab:2
+keybind = super+3=goto_tab:3
+keybind = super+4=goto_tab:4
+keybind = super+5=goto_tab:5
+keybind = super+6=goto_tab:6
+keybind = super+7=goto_tab:7
+keybind = super+8=goto_tab:8
+keybind = super+9=goto_tab:9
+
+# --- 窗口管理 ---
+keybind = super+n=new_window

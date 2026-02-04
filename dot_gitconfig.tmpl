@@ -1,0 +1,37 @@
+# Git 配置模板
+# 此文件由 chezmoi 自动生成
+
+[user]
+	name = {{ .git.user.name | quote }}
+	email = {{ .git.user.email | quote }}
+
+[core]
+	editor = vim
+{{- if .git.delta.enabled }}
+	pager = delta
+{{- end }}
+
+[interactive]
+{{- if .git.delta.enabled }}
+	diffFilter = delta --color-only
+{{- end }}
+
+[delta]
+{{- if .git.delta.enabled }}
+	navigate = true
+	light = false
+	side-by-side = {{ .git.delta.side_by_side }}
+	line-numbers = true
+{{- end }}
+
+[merge]
+	conflictstyle = diff3
+
+[diff]
+	colorMoved = default
+
+[init]
+	defaultBranch = main
+
+[pull]
+	rebase = false

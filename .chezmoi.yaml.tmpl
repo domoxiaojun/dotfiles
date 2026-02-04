@@ -1,0 +1,39 @@
+sourceDir: {{ .chezmoi.sourceDir | quote }}
+
+data:
+  name: "domo"
+  email: "{{ .email }}"
+
+  # 终端配置
+  terminal:
+    ghostty:
+      theme: "catppuccin-mocha"
+      font: "MesloLGS Nerd Font Mono"
+      font_size: 13.5
+
+  # Git 配置
+  git:
+    user:
+      name: "{{ .name }}"
+      email: "{{ .email }}"
+    delta:
+      enabled: true
+      side_by_side: true
+
+  # Shell 配置
+  shell:
+    starship:
+      enabled: true
+    zsh_plugins:
+      - "zsh-syntax-highlighting"
+      - "zsh-autosuggestions"
+
+  # 工具配置
+  tools:
+    lsd: true
+    bat: true
+    delta: true
+    btop: true
+    glow: true
+    fx: true
+    fzf: true
