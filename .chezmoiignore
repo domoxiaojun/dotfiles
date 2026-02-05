@@ -1,7 +1,16 @@
-# macOS 特定忽略
+# macOS 特定忽略（非 macOS 时忽略这些文件）
 {{ if ne .chezmoi.os "darwin" }}
 .config/ghostty/
+.tmux.conf
+.zshrc
+.chezmoiscripts/darwin_install-packages.sh
 {{ end }}
+
+# Windows 特定忽略（非 Windows 时忽略这些文件）
+{{ if ne .chezmoi.os "windows" }}
+Documents/
+{{ end }}
+.chezmoiscripts/windows_install-packages.ps1
 
 # 备份文件
 *.backup.*

@@ -17,23 +17,23 @@ data:
       name: "{{ .name }}"
       email: "{{ .email }}"
     delta:
-      enabled: true
+      enabled: {{ if lookPath "delta" }}true{{ else }}false{{ end }}
       side_by_side: true
 
   # Shell 配置
   shell:
     starship:
-      enabled: true
+      enabled: {{ if lookPath "starship" }}true{{ else }}false{{ end }}
     zsh_plugins:
       - "zsh-syntax-highlighting"
       - "zsh-autosuggestions"
 
   # 工具配置
   tools:
-    lsd: true
-    bat: true
-    delta: true
-    btop: true
-    glow: true
-    fx: true
-    fzf: true
+    lsd: {{ if lookPath "lsd" }}true{{ else }}false{{ end }}
+    bat: {{ if lookPath "bat" }}true{{ else }}false{{ end }}
+    delta: {{ if lookPath "delta" }}true{{ else }}false{{ end }}
+    btop: {{ if lookPath "btop" }}true{{ else }}false{{ end }}
+    glow: {{ if lookPath "glow" }}true{{ else }}false{{ end }}
+    fx: {{ if lookPath "fx" }}true{{ else }}false{{ end }}
+    fzf: {{ if lookPath "fzf" }}true{{ else }}false{{ end }}
