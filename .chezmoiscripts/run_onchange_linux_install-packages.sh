@@ -134,10 +134,16 @@ else
     echo "✅ Nerd Font 已安装"
 fi
 
+# 切换默认 Shell 为 Zsh
+if [ "$SHELL" != "$(which zsh)" ]; then
+    echo "🔄 切换默认 Shell 为 Zsh (可能需要输入密码)..."
+    chsh -s $(which zsh) || echo "⚠️ 自动切换 Shell 失败，请手动执行: chsh -s \$(which zsh)"
+fi
+
 echo ""
 echo "✅ 所有依赖安装完成！"
 echo ""
 echo "📝 后续步骤："
-echo "  1. 重启终端"
+echo "  1. 重启终端 (或直接运行 'zsh' 即刻体验)"
 echo "  2. 启动 tmux 并按 Ctrl+b I 安装插件"
 echo "  3. 享受你的新终端环境！"
