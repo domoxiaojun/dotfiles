@@ -1,8 +1,34 @@
+{{- if not (lookPath "git") -}}
+{{-   fail `
+========================================
+  ❌ 未检测到 Git，请先安装 Git！
+
+  📦 安装方法：
+
+  🐧 Debian/Ubuntu:
+     sudo apt update && sudo apt install -y git
+
+  🐧 CentOS/RHEL/Fedora:
+     sudo dnf install -y git
+
+  🍎 macOS:
+     brew install git
+
+  🪟 Windows:
+     winget install Git.Git
+
+  安装完成后请重新运行:
+     chezmoi init --apply domoxiaojun
+========================================
+` -}}
+{{- end -}}
+{{- $email := get . "email" | default (output "git" "config" "user.email" | trim) -}}
+{{- $name := get . "name" | default (output "git" "config" "user.name" | trim) -}}
 sourceDir: {{ .chezmoi.sourceDir | quote }}
 
 data:
-  name: "domo"
-  email: "{{ .email }}"
+  name: {{ $name | quote }}
+  email: {{ $email | quote }}
 
   # 终端配置
   terminal:
@@ -14,8 +40,8 @@ data:
   # Git 配置
   git:
     user:
-      name: "{{ .name }}"
-      email: "{{ .email }}"
+      name: {{ $name | quote }}
+      email: {{ $email | quote }}
     delta:
       enabled: {{ if lookPath "delta" }}true{{ else }}false{{ end }}
       side_by_side: true
