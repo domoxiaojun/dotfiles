@@ -1,15 +1,23 @@
-# macOS 特定忽略（非 macOS 时忽略这些文件）
-{{ if ne .chezmoi.os "darwin" }}
-.config/ghostty/
+# Windows 上忽略 Unix 专属配置
+{{ if eq .chezmoi.os "windows" }}
 .tmux.conf
 .zshrc
+.config/ghostty/
+{{ end }}
+
+# 安装脚本：各平台独立
+{{ if ne .chezmoi.os "darwin" }}
 .chezmoiscripts/darwin_install-packages.sh
+{{ end }}
+{{ if ne .chezmoi.os "linux" }}
+.chezmoiscripts/linux_install-packages.sh
 {{ end }}
 
 # Windows 特定忽略（非 Windows 时忽略这些文件）
 {{ if ne .chezmoi.os "windows" }}
 Documents/
 {{ end }}
+# Windows 安装脚本暂时全局忽略
 .chezmoiscripts/windows_install-packages.ps1
 
 # 备份文件

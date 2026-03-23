@@ -1,0 +1,131 @@
+# =========================
+# Locale
+# =========================
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+
+
+# =========================
+# Completion paths（必须在 compinit 之前）
+# =========================
+
+{{ if eq .chezmoi.os "darwin" -}}
+# Docker CLI completion (macOS)
+fpath=($HOME/.docker/completions $fpath)
+
+# Homebrew zsh-completions
+if type brew &>/dev/null; then
+  fpath=($(brew --prefix)/share/zsh-completions $fpath)
+fi
+{{ end -}}
+
+
+# =========================
+# Completion init（只调用一次）
+# =========================
+autoload -Uz compinit
+compinit
+
+
+# =========================
+# zsh plugins
+# =========================
+{{ if eq .chezmoi.os "darwin" -}}
+# macOS: Homebrew 路径
+[ -f /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh ] && \
+  source /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+[ -f /opt/homebrew/opt/zsh-fast-syntax-highlighting/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh ] && \
+  source /opt/homebrew/opt/zsh-fast-syntax-highlighting/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh
+[ -f /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] && \
+  source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+{{ else -}}
+# Linux: 常见安装路径
+[ -f /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ] && \
+  source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+[ -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] && \
+  source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+{{ end -}}
+
+
+# =========================
+# Prompt
+# =========================
+if command -v starship &> /dev/null; then
+  eval "$(starship init zsh)"
+fi
+
+
+# =========================
+# Convenience aliases
+# =========================
+alias python=python3
+alias pip=pip3
+{{ if eq .chezmoi.os "darwin" -}}
+alias bash5='/opt/homebrew/bin/bash'
+{{ end -}}
+
+# =========================
+# 终端美化工具别名（24-bit 真彩色）
+# =========================
+# lsd - 彩色 ls（带图标和文件类型）
+if command -v lsd &> /dev/null; then
+  alias ls='lsd'
+  alias ll='lsd -l'
+  alias la='lsd -la'
+  alias lt='lsd --tree'
+fi
+
+# bat - 彩色 cat（语法高亮）
+{{ if eq .chezmoi.os "linux" -}}
+# Ubuntu/Debian 上 bat 命令名为 batcat
+if command -v batcat &> /dev/null; then
+  alias cat='batcat --style=plain --paging=never'
+  alias catt='batcat --paging=never'
+  alias batp='batcat'
+elif command -v bat &> /dev/null; then
+  alias cat='bat --style=plain --paging=never'
+  alias catt='bat --paging=never'
+  alias batp='bat'
+fi
+{{ else -}}
+if command -v bat &> /dev/null; then
+  alias cat='bat --style=plain --paging=never'
+  alias catt='bat --paging=never'
+  alias batp='bat'
+fi
+{{ end -}}
+
+# glow - Markdown 渲染
+if command -v glow &> /dev/null; then
+  alias md='glow'
+fi
+
+# btop - 系统监控（替代 top/htop）
+if command -v btop &> /dev/null; then
+  alias top='btop'
+fi
+
+
+{{ if eq .chezmoi.os "darwin" -}}
+# =========================
+# Python / pipx (macOS)
+# =========================
+export PIPX_DEFAULT_PYTHON=/opt/homebrew/bin/python3.12
+{{ end -}}
+
+
+# =========================
+# PATH additions
+# =========================
+{{ if eq .chezmoi.os "darwin" -}}
+export PATH="$HOME/.antigravity/antigravity/bin:$PATH"
+{{ end -}}
+# chezmoi
+export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
+
+
+# =========================
+# zsh-autosuggestions config
+# =========================
+ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=8'
