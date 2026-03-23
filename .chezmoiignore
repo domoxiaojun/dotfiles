@@ -2,6 +2,7 @@
 {{ if eq .chezmoi.os "windows" }}
 .tmux.conf
 .zshrc
+.bash_aliases
 .config/ghostty/
 {{ end }}
 

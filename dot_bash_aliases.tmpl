@@ -1,0 +1,63 @@
+# =========================
+# Bash 专属附加配置
+# 此文件会被 Ubuntu/Debian 默认的 ~/.bashrc 自动加载
+# =========================
+
+# =========================
+# Prompt
+# =========================
+if command -v starship &> /dev/null; then
+  eval "$(starship init bash)"
+fi
+
+# =========================
+# Convenience aliases
+# =========================
+alias python=python3
+alias pip=pip3
+
+# =========================
+# 终端美化工具别名（24-bit 真彩色）
+# =========================
+# lsd - 彩色 ls（带图标和文件类型）
+if command -v lsd &> /dev/null; then
+  alias ls='lsd'
+  alias ll='lsd -l'
+  alias la='lsd -la'
+  alias lt='lsd --tree'
+fi
+
+# bat - 彩色 cat（语法高亮）
+{{ if eq .chezmoi.os "linux" -}}
+if command -v batcat &> /dev/null; then
+  alias cat='batcat --style=plain --paging=never'
+  alias catt='batcat --paging=never'
+  alias batp='batcat'
+elif command -v bat &> /dev/null; then
+  alias cat='bat --style=plain --paging=never'
+  alias catt='bat --paging=never'
+  alias batp='bat'
+fi
+{{ else -}}
+if command -v bat &> /dev/null; then
+  alias cat='bat --style=plain --paging=never'
+  alias catt='bat --paging=never'
+  alias batp='bat'
+fi
+{{ end -}}
+
+# glow - Markdown 渲染
+if command -v glow &> /dev/null; then
+  alias md='glow'
+fi
+
+# btop - 系统监控
+if command -v btop &> /dev/null; then
+  alias top='btop'
+fi
+
+# =========================
+# PATH additions
+# =========================
+# chezmoi
+export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
