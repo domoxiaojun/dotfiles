@@ -10,9 +10,19 @@ try {
 
     # 检查并安装 Scoop
     if (-not (Get-Command scoop -ErrorAction SilentlyContinue) -and -not (Test-Path "$env:USERPROFILE\scoop")) {
-        Write-Host "📦 安装 Scoop..." -ForegroundColor Yellow
-        Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
-        Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+        Write-Host "⚠️  未检测到 Scoop 包管理器" -ForegroundColor Yellow
+        Write-Host "   Scoop 是 Windows 下优秀的包管理工具，用于安装终端工具" -ForegroundColor Gray
+        $installScoop = Read-Host "是否安装 Scoop? (Y/n)"
+        if ($installScoop -eq '' -or $installScoop -match '^[Yy]$') {
+            Write-Host "📦 安装 Scoop..." -ForegroundColor Yellow
+            Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+            Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+        }
+        else {
+            Write-Host "⏭️  跳过 Scoop 安装，部分工具将无法安装" -ForegroundColor Yellow
+            Write-Host "   后续可手动安装: irm get.scoop.sh | iex" -ForegroundColor Gray
+            exit 0
+        }
     }
     else {
         Write-Host "✅ Scoop 已安装" -ForegroundColor Green
