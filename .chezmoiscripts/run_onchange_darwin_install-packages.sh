@@ -20,7 +20,7 @@ brew install ghostty starship zsh-syntax-highlighting zsh-autosuggestions
 
 # 安装美化工具
 echo "🎨 安装终端美化工具..."
-brew install lsd bat git-delta btop glow fx fzf
+brew install lsd bat git-delta btop glow fx fzf yazi
 
 # 安装 tmux 和插件管理器
 echo "🖥️  安装 Tmux..."

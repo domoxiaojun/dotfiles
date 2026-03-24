@@ -26,7 +26,7 @@ try {
 
     # 安装核心工具
     Write-Host "📦 安装终端工具..." -ForegroundColor Yellow
-    $tools = @("starship", "lsd", "bat", "delta", "btop", "glow", "fzf")
+    $tools = @("starship", "lsd", "bat", "delta", "btop", "glow", "fzf", "yazi")
     foreach ($tool in $tools) {
         if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
             Write-Host "  安装 $tool..." -ForegroundColor Gray

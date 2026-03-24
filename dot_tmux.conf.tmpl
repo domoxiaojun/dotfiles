@@ -1,0 +1,311 @@
+# ============================================================
+#  Tmux 自定义配置 (多平台适配版)
+#  作者: Domo  |  chezmoi 模板化
+# ============================================================
+
+# ──────────────────────────────────────────────────────────────
+#  基础选项 (Options)
+# ──────────────────────────────────────────────────────────────
+
+# Prefix 键: 将默认的 Ctrl-b 改为 Ctrl-s
+# 操作方式: 先按 Ctrl-s，再按其他快捷键
+set -g prefix C-s          # 设置新的 prefix 键为 Ctrl-s
+unbind C-b                  # 解除默认的 Ctrl-b 绑定
+bind C-s send-prefix        # 按两次 Ctrl-s 可以向终端发送 Ctrl-s 本身
+
+# 转义延时: 默认 500ms，改为 1ms
+# 影响: 按 ESC 后的响应速度，对 Vim 用户非常重要
+# 设置过低可能导致某些终端组合键无法识别
+set -sg escape-time 1
+
+# 鼠标支持: 开启后可用鼠标进行以下操作
+# - 点击切换面板
+# - 拖动调整面板大小
+# - 滚动历史输出
+# - 点击切换窗口
+set -g mouse on
+
+# 窗口自动重命名: 关闭
+# 默认 tmux 会根据当前运行的命令自动重命名窗口
+# 关闭后窗口名保持手动设置的名称
+set-option -g allow-rename off
+
+# 系统剪贴板集成: 开启
+# 允许 tmux 与系统剪贴板交互 (配合 tmux-yank 插件使用)
+set -g set-clipboard on
+
+# 历史缓冲区行数: 设置为 50000 行
+# 每个面板可回滚查看的历史输出行数
+# 值越大占用内存越多，但可以查看更多历史内容
+set -g history-limit 50000
+
+# 重载配置快捷键: prefix + r
+# 修改配置文件后无需重启 tmux，按 prefix r 即可生效
+bind r source-file ~/.tmux.conf\; display "配置已重载!"
+
+# 焦点事件: 开启
+# 允许 tmux 接收终端的焦点事件 (获得/失去焦点)
+# 某些插件和程序需要此功能 (如 Vim 的 FocusGained/FocusLost 事件)
+set-option -g focus-events on
+
+# ──────────────────────────────────────────────────────────────
+#  面板 (Pane)
+# ──────────────────────────────────────────────────────────────
+
+# 面板起始索引: 从 1 开始 (默认从 0 开始)
+# 与键盘布局一致，更符合直觉 (1 在左边，0 在右边)
+setw -g pane-base-index 1
+
+# 面板导航: 使用 Vim 风格的 hjkl 键
+# prefix + h/j/k/l 分别选择 左/下/上/右 的面板
+bind h select-pane -L       # 左
+bind j select-pane -D       # 下
+bind k select-pane -U       # 上
+bind l select-pane -R       # 右
+
+# 面板缩放: 使用大写的 HJKL 调整面板大小
+# -r 表示可重复按键 (按住不放连续调整)
+# 每次调整 5 个字符的宽度/高度
+bind -r H resize-pane -L 5  # 向左扩大
+bind -r J resize-pane -D 5  # 向下扩大
+bind -r K resize-pane -U 5  # 向上扩大
+bind -r L resize-pane -R 5  # 向右扩大
+
+# 面板边框状态: 在顶部显示
+# 可选值: top (顶部) / bottom (底部) / off (关闭)
+# 显示内容为面板的当前目录或运行的命令
+set -g pane-border-status top
+
+# ──────────────────────────────────────────────────────────────
+#  窗口 (Window)
+# ──────────────────────────────────────────────────────────────
+
+# 窗口起始索引: 从 1 开始 (默认从 0 开始)
+set -g base-index 1
+
+# 窗口切换: Ctrl-h / Ctrl-l 切换上/下一个窗口
+# -r 表示可重复按键
+bind -r C-h select-window -t :-    # 切换到上一个窗口
+bind -r C-l select-window -t :+    # 切换到下一个窗口
+
+# 窗口分割: 使用 | 和 - 代替默认的 % 和 "
+# | 水平分割 (左右)
+# - 垂直分割 (上下)
+bind | split-window -h      # 水平分割，新面板在右边
+bind - split-window -v      # 垂直分割，新面板在下面
+
+# ──────────────────────────────────────────────────────────────
+#  复制模式 (Copy Mode)
+# ──────────────────────────────────────────────────────────────
+
+# 按键模式: 使用 Vi 风格
+# 复制模式下的按键绑定与 Vim 一致
+setw -g mode-keys vi        # 复制模式使用 vi 按键
+set -g status-keys vi       # 命令行输入使用 vi 按键
+
+# 复制模式快捷键:
+# prefix + [ 进入复制模式
+# v 开始选择
+# y 复制选中内容 (需要 tmux-yank 插件)
+bind-key -T copy-mode-vi v send-keys -X begin-selection
+
+# 历史命令导航: 在命令输入时使用上下键
+bind-key -T vi-edit Up send -X history-up      # 上一条命令
+bind-key -T vi-edit Down send -X history-down  # 下一条命令
+
+# ──────────────────────────────────────────────────────────────
+#  状态栏 (Status Bar)
+# ──────────────────────────────────────────────────────────────
+
+# 状态栏刷新间隔: 每秒刷新一次
+# 影响状态栏上时间、CPU 等动态信息的更新频率
+set -g status-interval 1
+
+# 窗口列表居中: 窗口名在状态栏中间显示
+# 可选值: left (左对齐) / centre (居中) / right (右对齐)
+set -g status-justify centre
+
+# 状态栏左右两侧长度: 各 80 个字符
+set-option -g status-left-length "80"
+set-option -g status-right-length "80"
+
+# 活动通知: 监控窗口活动
+# 当其他窗口有输出时，当前窗口会显示通知标记
+setw -g monitor-activity on     # 开启活动监控
+set -g visual-activity off      # 关闭视觉通知 (不闪烁)
+
+# ──────────────────────────────────────────────────────────────
+#  颜色方案 (Color Scheme)
+# ──────────────────────────────────────────────────────────────
+
+# 终端颜色: 使用 256 色模式
+# 确保颜色正确显示，支持大多数现代终端
+set -g default-terminal "tmux-256color"
+
+# 真彩色支持: 开启 RGB 真彩色
+# 需要终端本身支持真彩色 (如 iTerm2, Alacritty, WezTerm, Ghostty)
+set -sa terminal-features ',xterm-256color:RGB'
+
+# 终端覆盖: 真彩色支持
+set -ag terminal-overrides ",xterm-256color:RGB"
+{{ if eq .chezmoi.os "darwin" -}}
+# macOS 剪贴板支持
+set -ag terminal-overrides ",xterm-256color:Tc"
+{{ end -}}
+
+# ──────────────────────────────────────────────────────────────
+#  插件 (Plugins) - 通过 TPM 管理
+# ──────────────────────────────────────────────────────────────
+
+# ============================================================
+# TPM - Tmux Plugin Manager (插件管理器)
+# 快捷键:
+#   prefix + Shift-i : 安装插件
+#   prefix + Shift-u : 更新插件
+#   prefix + Alt-u   : 卸载未在配置中声明的插件
+# ============================================================
+set -g @plugin 'tmux-plugins/tpm'
+
+# ============================================================
+# tmux-logging - 日志记录插件
+# 功能: 记录面板输出到文件，方便调试和审计
+# 快捷键:
+#   prefix + Shift-p       : 开始/停止日志记录
+#   prefix + Alt-p         : 截图当前面板 (保存为文本文件)
+#   prefix + Shift-Alt-p   : 保存完整历史输出
+# ============================================================
+set -g @plugin 'tmux-plugins/tmux-logging'
+set -g @logging-path "$HOME/.tmux/logs"     # 日志保存目录
+# 日志文件名格式: tmux-会话名-窗口名-面板索引.面板标题-时间戳.log
+set -g @logging-filename "tmux-#{session_name}-#{window_name}-#{pane_index}.#{pane_title}-%Y%m%dT%H%M%S.log"
+
+# ============================================================
+# tmux-resurrect - 会话持久化插件
+# 功能: 保存和恢复 tmux 会话 (包括窗口、面板、工作目录)
+# 快捷键:
+#   prefix + Ctrl-s : 手动保存当前所有会话
+#   prefix + Ctrl-r : 手动恢复上次保存的会话
+# 保存位置: ~/.tmux/resurrect/
+# ============================================================
+set -g @plugin 'tmux-plugins/tmux-resurrect'
+# 恢复面板内容: 开启后会恢复面板中的历史输出
+# 注意: 会话越大恢复越慢，可根据需要关闭
+set -g @resurrect-capture-pane-contents 'on'
+
+# ============================================================
+# tmux-continuum - 自动保存/恢复插件
+# 功能: 定时自动保存会话，启动 tmux 时自动恢复
+# 依赖: tmux-resurrect
+# 注意: 首次使用时需手动保存一次 (prefix + Ctrl-s)
+#       否则会提示 "resurrect file not found"
+# ============================================================
+set -g @plugin 'tmux-plugins/tmux-continuum'
+# 自动保存间隔: 1440 分钟 = 24 小时
+# tmux 每隔 24 小时自动保存一次会话状态
+set -g @continuum-save-interval '1440'
+# 自动恢复: 开启后启动 tmux 自动恢复上次保存的会话
+set -g @continuum-restore 'on'
+
+# ============================================================
+# tmux-yank - 系统剪贴板集成 (多平台适配)
+# 功能: 在 tmux 复制模式中直接复制到系统剪贴板
+# 快捷键 (Normal 模式):
+#   prefix + y       : 复制当前命令行内容到剪贴板
+#   prefix + Shift-y : 复制当前面板工作目录到剪贴板
+# 快捷键 (Copy 模式):
+#   y : 复制选中内容到系统剪贴板
+#   Y : 复制选中内容并粘贴到命令行
+# ============================================================
+set -g @plugin 'tmux-plugins/tmux-yank'
+# 复制后行为: 'copy-pipe' 不退出复制模式
+# 可选值: 'copy-pipe' (继续选择) / 'copy-pipe-and-cancel' (退出复制模式)
+set -g @yank_action 'copy-pipe'
+# 剪贴板选择: 使用系统主剪贴板
+set -g @yank_selection 'clipboard'
+{{ if eq .chezmoi.os "darwin" -}}
+# macOS: 使用 pbcopy
+set -g @custom_copy_command 'pbcopy'
+{{ else if eq .chezmoi.os "linux" -}}
+# Linux: 使用 xclip (需要安装: sudo apt install xclip)
+set -g @custom_copy_command 'xclip -selection clipboard'
+{{ else if eq .chezmoi.os "windows" -}}
+# Windows (WSL): 使用 clip.exe
+set -g @custom_copy_command 'clip.exe'
+{{ end -}}
+
+# ============================================================
+# tmux-prefix-highlight - Prefix 键高亮插件
+# 功能: 按下 prefix 键后状态栏高亮显示，提示等待下一个按键
+# ============================================================
+set -g @plugin 'tmux-plugins/tmux-prefix-highlight'
+# 显示复制模式状态: 在状态栏显示是否处于复制模式
+set -g @prefix_highlight_show_copy_mode 'on'
+# 显示同步模式状态: 在状态栏显示是否开启面板同步输入
+set -g @prefix_highlight_show_sync_mode 'on'
+# 复制模式高亮样式: 适配 catppuccin 配色
+set -g @prefix_highlight_copy_mode_attr "fg=color239,bg=color214,bold"
+
+# ============================================================
+# extrakto - 快速提取文本插件
+# 功能: 无需鼠标，快速选择、复制面板中的文本 (URL、路径、hash 等)
+# 依赖: fzf (brew install fzf)
+# 快捷键:
+#   prefix + Tab   : 启动 extrakto
+#   Tab            : 在提取模式间切换 (单词/行/路径/URL 等)
+#   Enter          : 复制选中内容到剪贴板
+#   Ctrl+e         : 在编辑器中打开
+#   Ctrl+o         : 用系统默认程序打开
+# ============================================================
+set -g @plugin 'laktak/extrakto'
+
+# ============================================================
+# tmux-fzf - fzf 管理面板
+# 功能: 使用 fzf 模糊搜索管理 tmux 会话、窗口、面板
+# 依赖: fzf (brew install fzf)
+# 快捷键:
+#   prefix + F : 启动 tmux-fzf 管理界面
+#   可以搜索并切换/关闭/创建 会话/窗口/面板
+# ============================================================
+set -g @plugin 'sainnhe/tmux-fzf'
+
+# ============================================================
+# tmux-thumbs - 智能文本匹配插件
+# 功能: 一键复制面板中的 URL、路径、IP、hash 等
+# 依赖: Rust (cargo install tmux-thumbs)
+# ============================================================
+set -g @plugin 'fcsonline/tmux-thumbs'
+run-shell ~/.tmux/plugins/tmux-thumbs/tmux-thumbs.tmux
+
+# ============================================================
+# catppuccin/tmux - Catppuccin 主题
+# 功能: 美观的状态栏主题，支持多种风格
+# 可选风格: latte (浅色) / frappe / macchiato / mocha (深色)
+# ============================================================
+set -g @plugin 'catppuccin/tmux'
+run-shell '~/.tmux/plugins/tmux/catppuccin.tmux'
+
+# Catppuccin 主题配置
+set -g @catppuccin_flavor 'mocha'           # 主题风格: mocha (深色)
+set -g @catppuccin_window_status_style "rounded"  # 窗口标签样式: rounded (圆角)
+
+# 状态栏布局配置
+set -g status-right-length 100    # 右侧状态栏长度
+set -g status-left-length 100     # 左侧状态栏长度
+set -g status-left ""             # 左侧内容 (清空，由 catppuccin 接管)
+
+# 右侧状态栏内容: 应用名 + CPU + 会话名 + 运行时间
+set -g status-right "#{E:@catppuccin_status_application}"
+set -agF status-right "#{E:@catppuccin_status_cpu}"
+set -ag status-right "#{E:@catppuccin_status_session}"
+set -ag status-right "#{E:@catppuccin_status_uptime}"
+
+# ============================================================
+# tmux-cpu - CPU 监控插件
+# 功能: 在状态栏显示 CPU 使用率
+# ============================================================
+set -g @plugin 'tmux-plugins/tmux-cpu'
+
+# ──────────────────────────────────────────────────────────────
+#  初始化 TPM (必须放在最后)
+# ──────────────────────────────────────────────────────────────
+run '~/.tmux/plugins/tpm/tpm'

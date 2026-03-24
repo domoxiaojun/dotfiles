@@ -94,6 +94,23 @@ else
     echo "✅ glow 已安装"
 fi
 
+# 安装 yazi (终端文件管理器)
+if ! command -v yazi &> /dev/null; then
+    echo "📁 安装 yazi..."
+    if command -v cargo &> /dev/null; then
+        cargo install yazi
+    else
+        # 从 GitHub releases 下载
+        YAZI_VERSION=$(curl -s https://api.github.com/repos/sxyazi/yazi/releases/latest | grep -oP '"tag_name": "v?\K[^"]+')
+        curl -fsSLO "https://github.com/sxyazi/yazi/releases/latest/download/yazi-${YAZI_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+        tar -xzf "yazi-${YAZI_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+        sudo mv yazi-*/yazi /usr/local/bin/
+        rm -rf yazi-*
+    fi
+else
+    echo "✅ yazi 已安装"
+fi
+
 # 安装 zsh 插件
 echo "🔌 安装 Zsh 插件..."
 ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
