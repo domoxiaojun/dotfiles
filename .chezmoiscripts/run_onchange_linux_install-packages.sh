@@ -16,6 +16,24 @@ else
     exit 1
 fi
 
+# 检测系统架构
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64)
+        ARCH_SUFFIX="amd64"
+        ARCH_ALT="x86_64"
+        ;;
+    aarch64|arm64)
+        ARCH_SUFFIX="arm64"
+        ARCH_ALT="aarch64"
+        ;;
+    *)
+        echo "⚠️  未支持的架构: $ARCH"
+        ARCH_SUFFIX="amd64"
+        ARCH_ALT="x86_64"
+        ;;
+esac
+
 # 安装 Ghostty
 if ! command -v ghostty &> /dev/null; then
     echo "👻 安装 Ghostty..."
@@ -54,9 +72,9 @@ if ! command -v lsd &> /dev/null; then
     if [ "$PKG_MANAGER" = "apt" ]; then
         # lsd 不在默认 apt 源中，使用 dpkg
         LSD_VERSION=$(curl -s https://api.github.com/repos/lsd-rs/lsd/releases/latest | grep -oP '"tag_name": "v?\K[^"]+')
-        curl -fsSLO "https://github.com/lsd-rs/lsd/releases/latest/download/lsd_${LSD_VERSION}_amd64.deb"
-        sudo dpkg -i "lsd_${LSD_VERSION}_amd64.deb" || true
-        rm -f "lsd_${LSD_VERSION}_amd64.deb"
+        curl -fsSLO "https://github.com/lsd-rs/lsd/releases/latest/download/lsd_${LSD_VERSION}_${ARCH_SUFFIX}.deb"
+        sudo dpkg -i "lsd_${LSD_VERSION}_${ARCH_SUFFIX}.deb" || true
+        rm -f "lsd_${LSD_VERSION}_${ARCH_SUFFIX}.deb"
     elif [ "$PKG_MANAGER" = "dnf" ]; then
         sudo dnf install -y lsd || true
     fi
@@ -69,9 +87,9 @@ if ! command -v delta &> /dev/null; then
     echo "📊 安装 git-delta..."
     if [ "$PKG_MANAGER" = "apt" ]; then
         DELTA_VERSION=$(curl -s https://api.github.com/repos/dandavison/delta/releases/latest | grep -oP '"tag_name": "\K[^"]+')
-        curl -fsSLO "https://github.com/dandavison/delta/releases/latest/download/git-delta_${DELTA_VERSION}_amd64.deb"
-        sudo dpkg -i "git-delta_${DELTA_VERSION}_amd64.deb" || true
-        rm -f "git-delta_${DELTA_VERSION}_amd64.deb"
+        curl -fsSLO "https://github.com/dandavison/delta/releases/latest/download/git-delta_${DELTA_VERSION}_${ARCH_SUFFIX}.deb"
+        sudo dpkg -i "git-delta_${DELTA_VERSION}_${ARCH_SUFFIX}.deb" || true
+        rm -f "git-delta_${DELTA_VERSION}_${ARCH_SUFFIX}.deb"
     elif [ "$PKG_MANAGER" = "dnf" ]; then
         sudo dnf install -y git-delta || true
     fi
@@ -102,8 +120,9 @@ if ! command -v yazi &> /dev/null; then
     else
         # 从 GitHub releases 下载
         YAZI_VERSION=$(curl -s https://api.github.com/repos/sxyazi/yazi/releases/latest | grep -oP '"tag_name": "v?\K[^"]+')
-        curl -fsSLO "https://github.com/sxyazi/yazi/releases/latest/download/yazi-${YAZI_VERSION}-x86_64-unknown-linux-musl.tar.gz"
-        tar -xzf "yazi-${YAZI_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+        YAZI_ARCH="${ARCH_ALT}-unknown-linux-musl"
+        curl -fsSLO "https://github.com/sxyazi/yazi/releases/latest/download/yazi-${YAZI_VERSION}-${YAZI_ARCH}.tar.gz"
+        tar -xzf "yazi-${YAZI_VERSION}-${YAZI_ARCH}.tar.gz"
         sudo mv yazi-*/yazi /usr/local/bin/
         rm -rf yazi-*
     fi

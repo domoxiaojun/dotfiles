@@ -40,9 +40,11 @@ adjust-cell-height = 10%
 
 # --- 窗口与透明度 ---
 background-opacity = 0.95
+{{ if eq .chezmoi.os "darwin" -}}
 background-blur = true
 # macOS 专属：使用 native 或 ghostty 风格的标题栏
 macos-titlebar-style = native
+{{ end -}}
 
 # 边距
 window-padding-x = 16

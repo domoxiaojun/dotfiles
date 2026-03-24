@@ -8,18 +8,15 @@
 
 # 安装脚本：各平台独立
 {{ if ne .chezmoi.os "darwin" }}
-.chezmoiscripts/darwin_install-packages.sh
+.chezmoiscripts/run_onchange_darwin_install-packages.sh
 {{ end }}
 {{ if ne .chezmoi.os "linux" }}
-.chezmoiscripts/linux_install-packages.sh
+.chezmoiscripts/run_onchange_linux_install-packages.sh
 {{ end }}
-
-# Windows 特定忽略（非 Windows 时忽略这些文件）
 {{ if ne .chezmoi.os "windows" }}
+.chezmoiscripts/run_onchange_windows_install-packages.ps1
 Documents/
 {{ end }}
-# Windows 安装脚本暂时全局忽略
-.chezmoiscripts/windows_install-packages.ps1
 
 # 备份文件
 *.backup.*
