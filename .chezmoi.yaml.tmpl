@@ -1,44 +1,21 @@
-{{- if not (lookPath "git") -}}
-{{-   fail `
-========================================
-  ❌ 未检测到 Git，请先安装 Git！
-
-  📦 安装方法：
-
-  🐧 Debian/Ubuntu:
-     sudo apt update && sudo apt install -y git
-
-  🐧 CentOS/RHEL/Fedora:
-     sudo dnf install -y git
-
-  🍎 macOS:
-     brew install git
-
-  🪟 Windows:
-     winget install Git.Git
-
-  安装完成后请重新运行:
-     chezmoi init --apply domoxiaojun
-========================================
-` -}}
+{{- $name := "" -}}
+{{- $email := "" -}}
+{{- $dataName := get . "name" -}}
+{{- $dataEmail := get . "email" -}}
+{{- if lookPath "git" -}}
+{{-   $email = output "git" "config" "--default" "" "user.email" | trim -}}
+{{-   $name = output "git" "config" "--default" "" "user.name" | trim -}}
 {{- end -}}
-{{- $email := output "git" "config" "--default" "" "user.email" | trim -}}
-{{- $name := output "git" "config" "--default" "" "user.name" | trim -}}
-{{- if or (eq $email "") (eq $name "") -}}
-{{-   fail `
-========================================
-  ❌ 未检测到 Git 用户配置！
-
-  请先配置 Git 用户信息：
-     git config --global user.name "你的用户名"
-     git config --global user.email "你的邮箱"
-
-  配置完成后请重新运行:
-     chezmoi init --apply domoxiaojun
-========================================
-` -}}
-{{- end -}}
+{{- $name = default $dataName $name | default (env "USER") | default (env "USERNAME") | default "Your Name" -}}
+{{- $email = default $dataEmail $email | default "your-email@example.com" -}}
 sourceDir: {{ .chezmoi.sourceDir | quote }}
+
+{{ if eq .chezmoi.os "windows" -}}
+interpreters:
+  ps1:
+    command: pwsh
+    args: ["-NoLogo", "-NonInteractive"]
+{{ end -}}
 
 data:
   name: {{ $name | quote }}
