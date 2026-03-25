@@ -1,3 +1,4 @@
+{{ if eq .chezmoi.os "linux" -}}
 #!/bin/bash
 # 此脚本在 Linux 上 chezmoi apply 时自动运行
 # 用于安装必要的工具和依赖
@@ -187,3 +188,4 @@ echo "  1. 重新打开一个终端窗口，以加载最新的 Bash 配置"
 echo "  2. 启动 tmux 并按 Ctrl+s Shift+i 安装插件"
 echo "     Ctrl+s 已保留为 tmux 主前缀；交互式终端会自动关闭软件流控"
 echo "  3. 享受你的新终端环境！"
+{{ end -}}

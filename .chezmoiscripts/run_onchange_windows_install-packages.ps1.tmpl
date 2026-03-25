@@ -1,3 +1,4 @@
+{{ if eq .chezmoi.os "windows" -}}
 #!/usr/bin/env pwsh
 # Windows 依赖安装脚本
 # 此脚本在 Windows 上通过 chezmoi apply 自动运行
@@ -68,3 +69,4 @@ catch {
     Write-Host "请检查错误信息并重试" -ForegroundColor Yellow
     exit 1
 }
+{{ end -}}

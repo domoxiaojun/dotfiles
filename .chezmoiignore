@@ -6,15 +6,8 @@
 .config/ghostty/
 {{ end }}
 
-# 安装脚本：各平台独立
-{{ if ne .chezmoi.os "darwin" }}
-.chezmoiscripts/run_onchange_darwin_install-packages.sh
-{{ end }}
-{{ if ne .chezmoi.os "linux" }}
-.chezmoiscripts/run_onchange_linux_install-packages.sh
-{{ end }}
+# Documents 目录仅 Windows 需要
 {{ if ne .chezmoi.os "windows" }}
-.chezmoiscripts/run_onchange_windows_install-packages.ps1
 Documents/
 {{ end }}
 
