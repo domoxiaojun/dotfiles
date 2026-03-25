@@ -3,6 +3,12 @@
 # 此文件会被 Ubuntu/Debian 默认的 ~/.bashrc 自动加载
 # =========================
 
+# 支持 tmux 使用 Ctrl+s 作为 prefix。
+# 仅在交互式终端中关闭软件流控，跳过 Linux 纯控制台 tty (TERM=linux)。
+if [[ $- == *i* ]] && [[ -t 0 ]] && [[ "${TERM:-}" != "linux" ]] && command -v stty >/dev/null 2>&1; then
+  stty -ixon
+fi
+
 # =========================
 # Prompt
 # =========================
@@ -13,48 +19,17 @@ fi
 # =========================
 # Convenience aliases
 # =========================
-alias python=python3
-alias pip=pip3
+if command -v python3 &> /dev/null; then
+  alias python=python3
+fi
+if command -v pip3 &> /dev/null; then
+  alias pip=pip3
+fi
 
 # =========================
-# 终端美化工具别名（24-bit 真彩色）
+# 终端美化工具别名（共享配置）
 # =========================
-# lsd - 彩色 ls（带图标和文件类型）
-if command -v lsd &> /dev/null; then
-  alias ls='lsd'
-  alias ll='lsd -l'
-  alias la='lsd -la'
-  alias lt='lsd --tree'
-fi
-
-# bat - 彩色 cat（语法高亮）
-{{ if eq .chezmoi.os "linux" -}}
-if command -v batcat &> /dev/null; then
-  alias cat='batcat --style=plain --paging=never'
-  alias catt='batcat --paging=never'
-  alias batp='batcat'
-elif command -v bat &> /dev/null; then
-  alias cat='bat --style=plain --paging=never'
-  alias catt='bat --paging=never'
-  alias batp='bat'
-fi
-{{ else -}}
-if command -v bat &> /dev/null; then
-  alias cat='bat --style=plain --paging=never'
-  alias catt='bat --paging=never'
-  alias batp='bat'
-fi
-{{ end -}}
-
-# glow - Markdown 渲染
-if command -v glow &> /dev/null; then
-  alias md='glow'
-fi
-
-# btop - 系统监控
-if command -v btop &> /dev/null; then
-  alias top='btop'
-fi
+{{ template "shell-aliases" . }}
 
 # =========================
 # PATH additions

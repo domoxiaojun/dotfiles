@@ -7,6 +7,11 @@
 
 [core]
 	editor = vim
+{{- if eq .chezmoi.os "windows" }}
+	autocrlf = true
+{{- else }}
+	autocrlf = input
+{{- end }}
 {{- if .git.delta.enabled }}
 	pager = delta
 {{- end }}

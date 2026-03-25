@@ -1,53 +1,5 @@
-#ormat = """
-#username\
-#hostname\
-#directory\
-#git_branch\
-#git_state\
-#git_status\
-#cmd_duration\
-#line_break\
-#python\
-#character"""
-#
-#directory]
-#tyle = "blue"
-#ish_style_pwd_dir_length = 1
-#
-#character]
-#uccess_symbol = "[❯](purple)"
-#rror_symbol = "[❯](red)"
-#icmd_symbol = "[❮](green)"
-#
-#git_branch]
-#ormat = "[$branch]($style)"
-#tyle = "bright-black"
-#
-#git_status]
-#ormat = "[[(*$conflicted$untracked$modified$staged$renamed$deleted)](218) ($ahead_behind$stashed)]($style)"
-#tyle = "cyan"
-#onflicted = "​"
-#ntracked = "​"
-#odified = "​"
-#taged = "​"
-#enamed = "​"
-#eleted = "​"
-#tashed = "≡"
-#
-#git_state]
-#ormat = '\([$state( $progress_current/$progress_total)]($style)\) '
-#tyle = "bright-black"
-#
-#cmd_duration]
-#ormat = "[$duration]($style) "
-#tyle = "yellow"
-#
-#python]
-#ormat = "[$virtualenv]($style)"
-#tyle = "bright-black"
-#
-
-# 优化后的 format，加入了 [ ] 包裹模块，增加逻辑感
+# Starship Prompt 配置
+# 参考: https://starship.rs/config/
 command_timeout = 2000
 
 format = """

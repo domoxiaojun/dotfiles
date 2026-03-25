@@ -61,9 +61,9 @@ fi
 echo "📦 安装常用工具..."
 if [ "$PKG_MANAGER" = "apt" ]; then
     sudo apt update
-    sudo apt install -y zsh tmux fzf bat btop || true
+    sudo apt install -y git zsh tmux fzf bat btop || true
 elif [ "$PKG_MANAGER" = "dnf" ]; then
-    sudo dnf install -y zsh tmux fzf bat btop || true
+    sudo dnf install -y git zsh tmux fzf bat btop || true
 fi
 
 # 安装 lsd
@@ -71,10 +71,14 @@ if ! command -v lsd &> /dev/null; then
     echo "📂 安装 lsd..."
     if [ "$PKG_MANAGER" = "apt" ]; then
         # lsd 不在默认 apt 源中，使用 dpkg
-        LSD_VERSION=$(curl -s https://api.github.com/repos/lsd-rs/lsd/releases/latest | grep -oP '"tag_name": "v?\K[^"]+')
-        curl -fsSLO "https://github.com/lsd-rs/lsd/releases/latest/download/lsd_${LSD_VERSION}_${ARCH_SUFFIX}.deb"
-        sudo dpkg -i "lsd_${LSD_VERSION}_${ARCH_SUFFIX}.deb" || true
-        rm -f "lsd_${LSD_VERSION}_${ARCH_SUFFIX}.deb"
+        LSD_VERSION=$(curl -s https://api.github.com/repos/lsd-rs/lsd/releases/latest | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/^v//')
+        if [ -z "$LSD_VERSION" ]; then
+            echo "⚠️  无法获取 lsd 最新版本号，跳过安装"
+        else
+            curl -fsSLO "https://github.com/lsd-rs/lsd/releases/latest/download/lsd_${LSD_VERSION}_${ARCH_SUFFIX}.deb"
+            sudo dpkg -i "lsd_${LSD_VERSION}_${ARCH_SUFFIX}.deb" || true
+            rm -f "lsd_${LSD_VERSION}_${ARCH_SUFFIX}.deb"
+        fi
     elif [ "$PKG_MANAGER" = "dnf" ]; then
         sudo dnf install -y lsd || true
     fi
@@ -86,10 +90,14 @@ fi
 if ! command -v delta &> /dev/null; then
     echo "📊 安装 git-delta..."
     if [ "$PKG_MANAGER" = "apt" ]; then
-        DELTA_VERSION=$(curl -s https://api.github.com/repos/dandavison/delta/releases/latest | grep -oP '"tag_name": "\K[^"]+')
-        curl -fsSLO "https://github.com/dandavison/delta/releases/latest/download/git-delta_${DELTA_VERSION}_${ARCH_SUFFIX}.deb"
-        sudo dpkg -i "git-delta_${DELTA_VERSION}_${ARCH_SUFFIX}.deb" || true
-        rm -f "git-delta_${DELTA_VERSION}_${ARCH_SUFFIX}.deb"
+        DELTA_VERSION=$(curl -s https://api.github.com/repos/dandavison/delta/releases/latest | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4)
+        if [ -z "$DELTA_VERSION" ]; then
+            echo "⚠️  无法获取 delta 最新版本号，跳过安装"
+        else
+            curl -fsSLO "https://github.com/dandavison/delta/releases/latest/download/git-delta_${DELTA_VERSION}_${ARCH_SUFFIX}.deb"
+            sudo dpkg -i "git-delta_${DELTA_VERSION}_${ARCH_SUFFIX}.deb" || true
+            rm -f "git-delta_${DELTA_VERSION}_${ARCH_SUFFIX}.deb"
+        fi
     elif [ "$PKG_MANAGER" = "dnf" ]; then
         sudo dnf install -y git-delta || true
     fi
@@ -115,16 +123,17 @@ fi
 # 安装 yazi (终端文件管理器)
 if ! command -v yazi &> /dev/null; then
     echo "📁 安装 yazi..."
-    if command -v cargo &> /dev/null; then
-        cargo install yazi
+    # 优先使用预编译二进制，cargo 编译耗时长
+    YAZI_VERSION=$(curl -s https://api.github.com/repos/sxyazi/yazi/releases/latest | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/^v//')
+    YAZI_ARCH="${ARCH_ALT}-unknown-linux-musl"
+    if [ -n "$YAZI_VERSION" ] && curl -fsSLO "https://github.com/sxyazi/yazi/releases/latest/download/yazi-${YAZI_ARCH}.zip" 2>/dev/null; then
+        unzip -o "yazi-${YAZI_ARCH}.zip" -d yazi-tmp
+        sudo mv yazi-tmp/yazi-${YAZI_ARCH}/yazi /usr/local/bin/
+        rm -rf yazi-tmp "yazi-${YAZI_ARCH}.zip"
+    elif command -v cargo &> /dev/null; then
+        cargo install --locked yazi-fm
     else
-        # 从 GitHub releases 下载
-        YAZI_VERSION=$(curl -s https://api.github.com/repos/sxyazi/yazi/releases/latest | grep -oP '"tag_name": "v?\K[^"]+')
-        YAZI_ARCH="${ARCH_ALT}-unknown-linux-musl"
-        curl -fsSLO "https://github.com/sxyazi/yazi/releases/latest/download/yazi-${YAZI_VERSION}-${YAZI_ARCH}.tar.gz"
-        tar -xzf "yazi-${YAZI_VERSION}-${YAZI_ARCH}.tar.gz"
-        sudo mv yazi-*/yazi /usr/local/bin/
-        rm -rf yazi-*
+        echo "⚠️  无法安装 yazi（需要 cargo 或网络连接）"
     fi
 else
     echo "✅ yazi 已安装"
@@ -151,7 +160,7 @@ fi
 # 安装 TPM（Tmux 插件管理器）
 if [ ! -d ~/.tmux/plugins/tpm ]; then
     echo "📦 安装 TPM (Tmux Plugin Manager)..."
-    git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+    git clone --depth 1 https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 else
     echo "✅ TPM 已安装"
 fi
@@ -175,5 +184,6 @@ echo "✅ 所有依赖安装完成！"
 echo ""
 echo "📝 后续步骤："
 echo "  1. 重新打开一个终端窗口，以加载最新的 Bash 配置"
-echo "  2. 启动 tmux 并按 Ctrl+b I 安装插件"
+echo "  2. 启动 tmux 并按 Ctrl+s Shift+i 安装插件"
+echo "     Ctrl+s 已保留为 tmux 主前缀；交互式终端会自动关闭软件流控"
 echo "  3. 享受你的新终端环境！"
