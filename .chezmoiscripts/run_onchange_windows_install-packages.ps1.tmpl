@@ -1,72 +1,71 @@
 {{ if eq .chezmoi.os "windows" -}}
 #!/usr/bin/env pwsh
-# Windows 依赖安装脚本
-# 此脚本在 Windows 上通过 chezmoi apply 自动运行
-# version: 1.0.0
+# Windows package install script
+# Runs automatically on chezmoi apply
+# version: 1.1.0
 
 $ErrorActionPreference = 'Stop'
 try {
 
-    Write-Host "🚀 开始安装 Windows 终端工具..." -ForegroundColor Cyan
+    Write-Host "Installing Windows terminal tools..." -ForegroundColor Cyan
 
-    # 检查并安装 Scoop
+    # Check and install Scoop
     if (-not (Get-Command scoop -ErrorAction SilentlyContinue) -and -not (Test-Path "$env:USERPROFILE\scoop")) {
-        Write-Host "⚠️  未检测到 Scoop 包管理器" -ForegroundColor Yellow
-        Write-Host "📦 自动安装 Scoop..." -ForegroundColor Yellow
+        Write-Host "Scoop not found, installing..." -ForegroundColor Yellow
         Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
         Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
     }
     else {
-        Write-Host "✅ Scoop 已安装" -ForegroundColor Green
+        Write-Host "[OK] Scoop installed" -ForegroundColor Green
     }
 
-    # 确保 Scoop 在当前会话可用
+    # Ensure Scoop is available in current session
     $env:PATH = "$env:USERPROFILE\scoop\shims;$env:PATH"
 
-    # 添加 extras bucket（某些工具需要）
+    # Add extras bucket
     scoop bucket add extras 2>$null
 
-    # 安装核心工具
-    Write-Host "📦 安装终端工具..." -ForegroundColor Yellow
+    # Install core tools
+    Write-Host "Installing terminal tools..." -ForegroundColor Yellow
     $tools = @("git", "starship", "lsd", "bat", "delta", "btop", "glow", "fzf", "yazi")
     foreach ($tool in $tools) {
         if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
-            Write-Host "  安装 $tool..." -ForegroundColor Gray
+            Write-Host "  Installing $tool..." -ForegroundColor Gray
             scoop install $tool
         }
         else {
-            Write-Host "  ✅ $tool 已安装" -ForegroundColor Green
+            Write-Host "  [OK] $tool installed" -ForegroundColor Green
         }
     }
 
-    # 安装 Nerd Font
-    Write-Host "🔤 安装 Nerd Font..." -ForegroundColor Yellow
+    # Install Nerd Font
+    Write-Host "Installing Nerd Font..." -ForegroundColor Yellow
     scoop bucket add nerd-fonts 2>$null
     scoop install Meslo-NF-Mono 2>$null
 
     Write-Host ""
-    Write-Host "✅ 所有依赖安装完成！" -ForegroundColor Green
+    Write-Host "[OK] All dependencies installed!" -ForegroundColor Green
 
-    # 自动同步 Profile（解决 Documents 路径可能被重定向的问题）
+    # Sync PowerShell Profile
     $SourceProfile = Join-Path (Split-Path -Parent $PSScriptRoot) "Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
     if (Test-Path $SourceProfile) {
-        Write-Host "🔄 同步 Profile 到 $PROFILE ..." -ForegroundColor Cyan
+        Write-Host "Syncing Profile to $PROFILE ..." -ForegroundColor Cyan
         New-Item -ItemType Directory -Force -Path (Split-Path $PROFILE) | Out-Null
         Copy-Item $SourceProfile $PROFILE -Force
     }
 
     Write-Host ""
-    Write-Host "📝 后续步骤：" -ForegroundColor Cyan
-    Write-Host "  1. 重启 PowerShell"
-    Write-Host "  2. 在 Windows Terminal 设置中选择 'MesloLGS NF' 字体"
-    Write-Host "  3. 享受你的新终端环境！"
+    Write-Host "Next steps:" -ForegroundColor Cyan
+    Write-Host "  1. Restart PowerShell"
+    Write-Host "  2. Set 'MesloLGS NF' font in Windows Terminal settings"
+    Write-Host "  3. Enjoy your new terminal!"
 
     exit 0
 
 }
 catch {
-    Write-Host "❌ 安装过程中出现错误: $_" -ForegroundColor Red
-    Write-Host "请检查错误信息并重试" -ForegroundColor Yellow
+    Write-Host "Error: $_" -ForegroundColor Red
+    Write-Host "Please check the error and retry" -ForegroundColor Yellow
     exit 1
 }
 {{ end -}}
