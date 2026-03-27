@@ -1,13 +1,52 @@
-{{- $name := "" -}}
-{{- $email := "" -}}
-{{- $dataName := get . "name" -}}
-{{- $dataEmail := get . "email" -}}
-{{- if lookPath "git" -}}
-{{-   $email = output "git" "config" "--default" "" "user.email" | trim -}}
-{{-   $name = output "git" "config" "--default" "" "user.name" | trim -}}
+{{- /* 初始化时跳过已有数据 */ -}}
+{{- $existingName := "" -}}
+{{- $existingEmail := "" -}}
+{{- if hasKey . "name" -}}
+{{-   $existingName = .name -}}
 {{- end -}}
-{{- $name = default $dataName $name | default (env "USER") | default (env "USERNAME") | default "Your Name" -}}
-{{- $email = default $dataEmail $email | default "your-email@example.com" -}}
+{{- if hasKey . "email" -}}
+{{-   $existingEmail = .email -}}
+{{- end -}}
+
+{{- /* 获取现有 git 配置 */ -}}
+{{- $gitName := "" -}}
+{{- $gitEmail := "" -}}
+{{- if lookPath "git" -}}
+{{-   $gitEmail = output "git" "config" "--default" "" "user.email" | trim -}}
+{{-   $gitName = output "git" "config" "--default" "" "user.name" | trim -}}
+{{- end -}}
+
+{{- /* 如果已有配置则跳过交互 */ -}}
+{{- $name := $existingName -}}
+{{- $email := $existingEmail -}}
+
+{{- if not (and $existingName $existingEmail) -}}
+{{- /* 交互式选择 git 用户配置来源 */ -}}
+{{-   $gitConfigChoice := "" -}}
+{{-   if stdinIsATTY -}}
+{{-     $choices := list "default (使用默认值)" -}}
+{{-     if and $gitName $gitEmail -}}
+{{-       $choices = append $choices (printf "git (从 git config 读取: %s <%s>)" $gitName $gitEmail) -}}
+{{-     end -}}
+{{-     $choices = append $choices "custom (手动输入)" -}}
+{{-     $gitConfigChoice = promptChoice "Git 用户配置来源" $choices -}}
+{{-   else -}}
+{{-     $gitConfigChoice = "default (使用默认值)" -}}
+{{-   end -}}
+
+{{- /* 根据选择设置 name 和 email */ -}}
+{{-   if hasPrefix "git" $gitConfigChoice -}}
+{{-     $name = $gitName -}}
+{{-     $email = $gitEmail -}}
+{{-   else if hasPrefix "custom" $gitConfigChoice -}}
+{{-     $name = promptString "请输入用户名" -}}
+{{-     $email = promptString "请输入邮箱" -}}
+{{-   else -}}
+{{-     $name = default (env "USER") (env "USERNAME") | default "Your Name" -}}
+{{-     $email = "your-email@example.com" -}}
+{{-   end -}}
+{{- end -}}
+
 sourceDir: {{ .chezmoi.sourceDir | quote }}
 
 {{ if eq .chezmoi.os "windows" -}}
