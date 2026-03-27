@@ -25,6 +25,36 @@ try {
     # Add extras bucket
     scoop bucket add extras 2>$null
 
+    # Install latest PowerShell (pwsh)
+    if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
+        Write-Host "Installing PowerShell 7..." -ForegroundColor Yellow
+        scoop install pwsh
+    }
+    else {
+        Write-Host "[OK] PowerShell 7 installed" -ForegroundColor Green
+    }
+
+    # Set PowerShell 7 as default in Windows Terminal
+    $wtSettingsPath = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
+    if (Test-Path $wtSettingsPath) {
+        Write-Host "Setting PowerShell 7 as default terminal..." -ForegroundColor Yellow
+        $wtSettings = Get-Content $wtSettingsPath -Raw | ConvertFrom-Json
+        
+        # Find pwsh profile guid
+        $pwshProfile = $wtSettings.profiles.list | Where-Object { $_.name -like "*PowerShell*" -and $_.source -eq "Windows.Terminal.PowershellCore" }
+        if ($pwshProfile) {
+            $wtSettings.defaultProfile = $pwshProfile.guid
+            $wtSettings | ConvertTo-Json -Depth 100 | Set-Content $wtSettingsPath -Encoding UTF8
+            Write-Host "[OK] PowerShell 7 set as default" -ForegroundColor Green
+        }
+        else {
+            Write-Host "[WARN] PowerShell 7 profile not found in Windows Terminal, please set manually" -ForegroundColor Yellow
+        }
+    }
+    else {
+        Write-Host "[INFO] Windows Terminal not found, skipping default shell setting" -ForegroundColor Gray
+    }
+
     # Install core tools
     Write-Host "Installing terminal tools..." -ForegroundColor Yellow
     $tools = @("git", "starship", "lsd", "bat", "delta", "btop", "glow", "fzf", "yazi")
