@@ -226,10 +226,14 @@ set -g @yank_selection 'clipboard'
 # macOS: 使用 pbcopy
 set -g @custom_copy_command 'pbcopy'
 {{ else if eq .chezmoi.os "linux" -}}
-# Linux: 自动检测 Wayland/X11 并使用对应剪贴板工具
-# tmux-yank 默认已支持自动检测，如需手动指定：
-# Wayland: wl-copy  |  X11: xclip -selection clipboard
+# Linux: 检测 Wayland/X11 并使用对应剪贴板工具
+# Fedora 40+ 默认使用 Wayland
+{{-   if env "WAYLAND_DISPLAY" }}
+set -g @custom_copy_command 'wl-copy'
+{{-   else }}
+# X11 或未知环境，让 tmux-yank 自动检测
 # set -g @custom_copy_command 'xclip -selection clipboard'
+{{-   end }}
 {{ else if eq .chezmoi.os "windows" -}}
 # Windows (WSL): 使用 clip.exe
 set -g @custom_copy_command 'clip.exe'

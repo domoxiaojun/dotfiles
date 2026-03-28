@@ -2,16 +2,29 @@
 #!/bin/bash
 # 此脚本在 Linux 上 chezmoi apply 时自动运行
 # 用于安装必要的工具和依赖
+# 支持: Fedora (dnf), Ubuntu/Debian (apt)
 
 set -e
 
 echo "🚀 开始安装依赖工具..."
 
-# 检测包管理器
-if command -v apt &> /dev/null; then
-    PKG_MANAGER="apt"
-elif command -v dnf &> /dev/null; then
+# 检测包管理器和发行版
+DISTRO_ID=""
+DISTRO_VERSION=""
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    DISTRO_ID="$ID"
+    DISTRO_VERSION="$VERSION_ID"
+fi
+
+if command -v dnf &> /dev/null; then
     PKG_MANAGER="dnf"
+    echo "📦 检测到 Fedora/RHEL 系 (dnf)"
+    echo "   发行版: ${DISTRO_ID} ${DISTRO_VERSION}"
+elif command -v apt &> /dev/null; then
+    PKG_MANAGER="apt"
+    echo "📦 检测到 Debian/Ubuntu 系 (apt)"
+    echo "   发行版: ${DISTRO_ID} ${DISTRO_VERSION}"
 else
     echo "⚠️  未检测到支持的包管理器 (apt/dnf)"
     exit 1
@@ -35,22 +48,93 @@ case "$ARCH" in
         ;;
 esac
 
+# 检测显示服务器 (Wayland vs X11)
+DISPLAY_SERVER="unknown"
+if [ -n "$WAYLAND_DISPLAY" ]; then
+    DISPLAY_SERVER="wayland"
+elif [ -n "$DISPLAY" ]; then
+    DISPLAY_SERVER="x11"
+fi
+echo "🖥️  显示服务器: $DISPLAY_SERVER"
+
+# ============================================================
+# Fedora 专属: 启用常用 COPR 仓库
+# ============================================================
+if [ "$PKG_MANAGER" = "dnf" ]; then
+    echo ""
+    echo "📦 配置 Fedora 软件源..."
+    
+    # Ghostty COPR
+    if ! dnf copr list 2>/dev/null | grep -q "scottames/ghostty"; then
+        echo "   启用 Ghostty COPR..."
+        sudo dnf copr enable -y scottames/ghostty
+    fi
+fi
+
+# ============================================================
+# 安装基础工具
+# ============================================================
+echo ""
+echo "📦 安装基础工具..."
+if [ "$PKG_MANAGER" = "apt" ]; then
+    sudo apt update
+    sudo apt install -y git tmux fzf btop curl unzip fontconfig || true
+elif [ "$PKG_MANAGER" = "dnf" ]; then
+    sudo dnf install -y git tmux fzf btop curl unzip fontconfig || true
+fi
+
+# ============================================================
+# 安装剪贴板工具 (Wayland/X11)
+# ============================================================
+echo ""
+echo "📋 安装剪贴板工具..."
+if [ "$DISPLAY_SERVER" = "wayland" ] || [ "$DISTRO_ID" = "fedora" ]; then
+    # Fedora 40+ 默认 Wayland，优先安装 wl-clipboard
+    if ! command -v wl-copy &> /dev/null; then
+        echo "   安装 wl-clipboard (Wayland)..."
+        if [ "$PKG_MANAGER" = "dnf" ]; then
+            sudo dnf install -y wl-clipboard || true
+        elif [ "$PKG_MANAGER" = "apt" ]; then
+            sudo apt install -y wl-clipboard || true
+        fi
+    else
+        echo "   ✅ wl-clipboard 已安装"
+    fi
+else
+    # X11 环境安装 xclip
+    if ! command -v xclip &> /dev/null; then
+        echo "   安装 xclip (X11)..."
+        if [ "$PKG_MANAGER" = "dnf" ]; then
+            sudo dnf install -y xclip || true
+        elif [ "$PKG_MANAGER" = "apt" ]; then
+            sudo apt install -y xclip || true
+        fi
+    else
+        echo "   ✅ xclip 已安装"
+    fi
+fi
+
+# ============================================================
 # 安装 Ghostty
+# ============================================================
+echo ""
 if ! command -v ghostty &> /dev/null; then
     echo "👻 安装 Ghostty..."
     if [ "$PKG_MANAGER" = "apt" ]; then
         # Ubuntu: 使用社区维护的安装脚本
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)"
     elif [ "$PKG_MANAGER" = "dnf" ]; then
-        # Fedora: 使用 COPR
-        sudo dnf copr enable -y scottames/ghostty
+        # Fedora: 使用 COPR (已在上面启用)
         sudo dnf install -y ghostty
     fi
 else
     echo "✅ Ghostty 已安装"
 fi
 
+# ============================================================
 # 安装 Starship
+# ============================================================
+echo ""
 if ! command -v starship &> /dev/null; then
     echo "🚀 安装 Starship..."
     curl -sS https://starship.rs/install.sh | sh -s -- -y
@@ -58,23 +142,32 @@ else
     echo "✅ Starship 已安装"
 fi
 
-# 安装常用工具
-echo "📦 安装常用工具..."
-if [ "$PKG_MANAGER" = "apt" ]; then
-    sudo apt update
-    sudo apt install -y git zsh tmux fzf bat btop || true
-elif [ "$PKG_MANAGER" = "dnf" ]; then
-    sudo dnf install -y git zsh tmux fzf bat btop || true
+# ============================================================
+# 安装 bat
+# ============================================================
+echo ""
+if ! command -v bat &> /dev/null && ! command -v batcat &> /dev/null; then
+    echo "🦇 安装 bat..."
+    if [ "$PKG_MANAGER" = "apt" ]; then
+        sudo apt install -y bat || true
+    elif [ "$PKG_MANAGER" = "dnf" ]; then
+        sudo dnf install -y bat || true
+    fi
+else
+    echo "✅ bat 已安装"
 fi
 
+# ============================================================
 # 安装 lsd
+# ============================================================
+echo ""
 if ! command -v lsd &> /dev/null; then
     echo "📂 安装 lsd..."
     if [ "$PKG_MANAGER" = "apt" ]; then
         # lsd 不在默认 apt 源中，使用 dpkg
         LSD_VERSION=$(curl -s https://api.github.com/repos/lsd-rs/lsd/releases/latest | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/^v//')
         if [ -z "$LSD_VERSION" ]; then
-            echo "⚠️  无法获取 lsd 最新版本号，跳过安装"
+            echo "   ⚠️  无法获取 lsd 最新版本号，跳过安装"
         else
             curl -fsSLO "https://github.com/lsd-rs/lsd/releases/latest/download/lsd_${LSD_VERSION}_${ARCH_SUFFIX}.deb"
             sudo dpkg -i "lsd_${LSD_VERSION}_${ARCH_SUFFIX}.deb" || true
@@ -87,13 +180,16 @@ else
     echo "✅ lsd 已安装"
 fi
 
-# 安装 delta
+# ============================================================
+# 安装 delta (git diff 美化)
+# ============================================================
+echo ""
 if ! command -v delta &> /dev/null; then
     echo "📊 安装 git-delta..."
     if [ "$PKG_MANAGER" = "apt" ]; then
         DELTA_VERSION=$(curl -s https://api.github.com/repos/dandavison/delta/releases/latest | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4)
         if [ -z "$DELTA_VERSION" ]; then
-            echo "⚠️  无法获取 delta 最新版本号，跳过安装"
+            echo "   ⚠️  无法获取 delta 最新版本号，跳过安装"
         else
             curl -fsSLO "https://github.com/dandavison/delta/releases/latest/download/git-delta_${DELTA_VERSION}_${ARCH_SUFFIX}.deb"
             sudo dpkg -i "git-delta_${DELTA_VERSION}_${ARCH_SUFFIX}.deb" || true
@@ -106,7 +202,10 @@ else
     echo "✅ delta 已安装"
 fi
 
-# 安装 glow
+# ============================================================
+# 安装 glow (Markdown 渲染)
+# ============================================================
+echo ""
 if ! command -v glow &> /dev/null; then
     echo "✨ 安装 glow..."
     if [ "$PKG_MANAGER" = "apt" ]; then
@@ -121,7 +220,40 @@ else
     echo "✅ glow 已安装"
 fi
 
+# ============================================================
+# 安装 fd (更好的 find)
+# ============================================================
+echo ""
+if ! command -v fd &> /dev/null && ! command -v fdfind &> /dev/null; then
+    echo "🔍 安装 fd..."
+    if [ "$PKG_MANAGER" = "apt" ]; then
+        sudo apt install -y fd-find || true
+    elif [ "$PKG_MANAGER" = "dnf" ]; then
+        sudo dnf install -y fd-find || true
+    fi
+else
+    echo "✅ fd 已安装"
+fi
+
+# ============================================================
+# 安装 ripgrep (更好的 grep)
+# ============================================================
+echo ""
+if ! command -v rg &> /dev/null; then
+    echo "🔎 安装 ripgrep..."
+    if [ "$PKG_MANAGER" = "apt" ]; then
+        sudo apt install -y ripgrep || true
+    elif [ "$PKG_MANAGER" = "dnf" ]; then
+        sudo dnf install -y ripgrep || true
+    fi
+else
+    echo "✅ ripgrep 已安装"
+fi
+
+# ============================================================
 # 安装 yazi (终端文件管理器)
+# ============================================================
+echo ""
 if ! command -v yazi &> /dev/null; then
     echo "📁 安装 yazi..."
     # 优先使用预编译二进制，cargo 编译耗时长
@@ -134,31 +266,27 @@ if ! command -v yazi &> /dev/null; then
     elif command -v cargo &> /dev/null; then
         cargo install --locked yazi-fm
     else
-        echo "⚠️  无法安装 yazi（需要 cargo 或网络连接）"
+        echo "   ⚠️  无法安装 yazi（需要 cargo 或网络连接）"
     fi
 else
     echo "✅ yazi 已安装"
 fi
 
-# 安装 zsh 插件
+# ============================================================
+# 安装 zsh 插件 (系统级)
+# ============================================================
+echo ""
 echo "🔌 安装 Zsh 插件..."
-ZSH_CUSTOM="${ZSH_CUSTOM:-$HOME/.oh-my-zsh/custom}"
-if [ ! -d "${ZSH_CUSTOM}/plugins/zsh-syntax-highlighting" ]; then
-    if [ "$PKG_MANAGER" = "apt" ]; then
-        sudo apt install -y zsh-syntax-highlighting || true
-    elif [ "$PKG_MANAGER" = "dnf" ]; then
-        sudo dnf install -y zsh-syntax-highlighting || true
-    fi
-fi
-if [ ! -d "${ZSH_CUSTOM}/plugins/zsh-autosuggestions" ]; then
-    if [ "$PKG_MANAGER" = "apt" ]; then
-        sudo apt install -y zsh-autosuggestions || true
-    elif [ "$PKG_MANAGER" = "dnf" ]; then
-        sudo dnf install -y zsh-autosuggestions || true
-    fi
+if [ "$PKG_MANAGER" = "apt" ]; then
+    sudo apt install -y zsh-syntax-highlighting zsh-autosuggestions || true
+elif [ "$PKG_MANAGER" = "dnf" ]; then
+    sudo dnf install -y zsh-syntax-highlighting zsh-autosuggestions || true
 fi
 
+# ============================================================
 # 安装 TPM（Tmux 插件管理器）
+# ============================================================
+echo ""
 if [ ! -d ~/.tmux/plugins/tpm ]; then
     echo "📦 安装 TPM (Tmux Plugin Manager)..."
     git clone --depth 1 https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
@@ -166,8 +294,11 @@ else
     echo "✅ TPM 已安装"
 fi
 
+# ============================================================
 # 安装 Nerd Font
-if ! fc-list | grep -qi "MesloLGS Nerd Font" 2>/dev/null; then
+# ============================================================
+echo ""
+if ! fc-list 2>/dev/null | grep -qi "MesloLGS Nerd Font"; then
     echo "🔤 安装 MesloLGS Nerd Font..."
     mkdir -p ~/.local/share/fonts
     cd ~/.local/share/fonts
@@ -180,12 +311,23 @@ else
     echo "✅ Nerd Font 已安装"
 fi
 
+# ============================================================
+# 完成提示
+# ============================================================
 echo ""
+echo "══════════════════════════════════════════════════════════"
 echo "✅ 所有依赖安装完成！"
+echo "══════════════════════════════════════════════════════════"
 echo ""
 echo "📝 后续步骤："
-echo "  1. 重新打开一个终端窗口，以加载最新的 Bash 配置"
-echo "  2. 启动 tmux 并按 Ctrl+s Shift+i 安装插件"
-echo "     Ctrl+s 已保留为 tmux 主前缀；交互式终端会自动关闭软件流控"
+echo "  1. 重新打开终端（或新开一个 Ghostty 窗口）"
+echo "  2. 启动 tmux 并按 Ctrl+s Shift+I 安装插件"
 echo "  3. 享受你的新终端环境！"
+echo ""
+if [ "$DISTRO_ID" = "fedora" ]; then
+    echo "🎩 Fedora 用户提示："
+    echo "  - 剪贴板: 已安装 wl-clipboard (Wayland)"
+    echo "  - 终端: Ghostty 来自 COPR (scottames/ghostty)"
+    echo ""
+fi
 {{ end -}}

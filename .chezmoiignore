@@ -1,3 +1,8 @@
+# ============================================================
+# chezmoi 忽略规则
+# 根据不同平台选择性应用配置
+# ============================================================
+
 # Windows 上忽略 Unix 专属配置
 {{ if eq .chezmoi.os "windows" }}
 .tmux.conf
@@ -6,9 +11,15 @@
 .config/ghostty/
 {{ end }}
 
-# Documents 目录仅 Windows 需要
+# Documents 目录仅 Windows 需要 (PowerShell profile)
 {{ if ne .chezmoi.os "windows" }}
 Documents/
+{{ end }}
+
+# Linux 上忽略 .zshrc (使用系统默认 shell + .bash_aliases)
+# 注意: 如果你想在 Linux 上也用 zsh，注释掉下面这行
+{{ if eq .chezmoi.os "linux" }}
+.zshrc
 {{ end }}
 
 # 备份文件
