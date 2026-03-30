@@ -45,6 +45,11 @@ staged = "+ "
 renamed = "» "
 deleted = "✘ "
 
+[git_branch]
+symbol = " "
+style = "bold purple"
+format = "[$symbol$branch]($style) "
+
 [hostname]
 ssh_only = true # 仅在 SSH 时显示
 format = "[$hostname]($style) "

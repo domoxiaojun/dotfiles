@@ -51,12 +51,25 @@ esac
 
 # 检测显示服务器 (Wayland vs X11)
 DISPLAY_SERVER="unknown"
+HAS_DESKTOP=false
 if [ -n "$WAYLAND_DISPLAY" ]; then
     DISPLAY_SERVER="wayland"
+    HAS_DESKTOP=true
 elif [ -n "$DISPLAY" ]; then
     DISPLAY_SERVER="x11"
+    HAS_DESKTOP=true
+elif [ -n "$XDG_SESSION_TYPE" ]; then
+    # 某些情况下环境变量可能未设置，但 XDG_SESSION_TYPE 可能有值
+    DISPLAY_SERVER="$XDG_SESSION_TYPE"
+    if [ "$XDG_SESSION_TYPE" = "wayland" ] || [ "$XDG_SESSION_TYPE" = "x11" ]; then
+        HAS_DESKTOP=true
+    fi
 fi
-echo "🖥️  显示服务器: $DISPLAY_SERVER"
+if [ "$HAS_DESKTOP" = true ]; then
+    echo "🖥️  桌面环境: $DISPLAY_SERVER"
+else
+    echo "🖥️  无桌面环境 (服务器/容器模式)"
+fi
 
 # ============================================================
 # Fedora 专属: 启用常用 COPR 仓库
@@ -101,34 +114,39 @@ elif [ "$PKG_MANAGER" = "dnf" ]; then
 fi
 
 # ============================================================
-# 安装剪贴板工具 (Wayland/X11)
+# 安装剪贴板工具 (仅桌面环境)
 # ============================================================
-echo ""
-echo "📋 安装剪贴板工具..."
-if [ "$DISPLAY_SERVER" = "wayland" ] || [ "$DISTRO_ID" = "fedora" ]; then
-    # Fedora 40+ 默认 Wayland，优先安装 wl-clipboard
-    if ! command -v wl-copy &> /dev/null; then
-        echo "   安装 wl-clipboard (Wayland)..."
-        if [ "$PKG_MANAGER" = "dnf" ]; then
-            sudo dnf install -y wl-clipboard || true
-        elif [ "$PKG_MANAGER" = "apt" ]; then
-            sudo apt install -y wl-clipboard || true
+if [ "$HAS_DESKTOP" = true ]; then
+    echo ""
+    echo "📋 安装剪贴板工具..."
+    if [ "$DISPLAY_SERVER" = "wayland" ] || [ "$DISTRO_ID" = "fedora" ]; then
+        # Fedora 40+ 默认 Wayland，优先安装 wl-clipboard
+        if ! command -v wl-copy &> /dev/null; then
+            echo "   安装 wl-clipboard (Wayland)..."
+            if [ "$PKG_MANAGER" = "dnf" ]; then
+                sudo dnf install -y wl-clipboard || true
+            elif [ "$PKG_MANAGER" = "apt" ]; then
+                sudo apt install -y wl-clipboard || true
+            fi
+        else
+            echo "   ✅ wl-clipboard 已安装"
         fi
     else
-        echo "   ✅ wl-clipboard 已安装"
+        # X11 环境安装 xclip
+        if ! command -v xclip &> /dev/null; then
+            echo "   安装 xclip (X11)..."
+            if [ "$PKG_MANAGER" = "dnf" ]; then
+                sudo dnf install -y xclip || true
+            elif [ "$PKG_MANAGER" = "apt" ]; then
+                sudo apt install -y xclip || true
+            fi
+        else
+            echo "   ✅ xclip 已安装"
+        fi
     fi
 else
-    # X11 环境安装 xclip
-    if ! command -v xclip &> /dev/null; then
-        echo "   安装 xclip (X11)..."
-        if [ "$PKG_MANAGER" = "dnf" ]; then
-            sudo dnf install -y xclip || true
-        elif [ "$PKG_MANAGER" = "apt" ]; then
-            sudo apt install -y xclip || true
-        fi
-    else
-        echo "   ✅ xclip 已安装"
-    fi
+    echo ""
+    echo "📋 跳过剪贴板工具 (无桌面环境)"
 fi
 
 # ============================================================
@@ -268,18 +286,22 @@ else
 fi
 
 # ============================================================
-# 安装 jq (JSON 处理，yazi 依赖)
+# 安装 fx (JSON 交互查看器)
 # ============================================================
 echo ""
-if ! command -v jq &> /dev/null; then
-    echo "📋 安装 jq..."
-    if [ "$PKG_MANAGER" = "apt" ]; then
-        sudo apt install -y jq || true
-    elif [ "$PKG_MANAGER" = "dnf" ]; then
-        sudo dnf install -y jq || true
+if ! command -v fx &> /dev/null; then
+    echo "📋 安装 fx..."
+    FX_VERSION=$(curl -s https://api.github.com/repos/antonmedv/fx/releases/latest | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4)
+    if [ -n "$FX_VERSION" ]; then
+        curl -fsSLO "https://github.com/antonmedv/fx/releases/latest/download/fx_linux_${ARCH_SUFFIX}.tar.gz"
+        tar -xzf "fx_linux_${ARCH_SUFFIX}.tar.gz"
+        sudo mv fx /usr/local/bin/
+        rm -f "fx_linux_${ARCH_SUFFIX}.tar.gz"
+    else
+        echo "   ⚠️  无法获取 fx 版本号，跳过安装"
     fi
 else
-    echo "✅ jq 已安装"
+    echo "✅ fx 已安装"
 fi
 
 # ============================================================

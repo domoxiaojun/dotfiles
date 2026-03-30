@@ -67,7 +67,7 @@ try {
 
     # Install core tools
     Write-Host "Installing terminal tools..." -ForegroundColor Yellow
-    $tools = @("starship", "lsd", "bat", "delta", "btop", "glow", "fzf", "yazi", "fd", "ripgrep", "jq")
+    $tools = @("starship", "lsd", "bat", "delta", "btop", "glow", "fx", "fzf", "yazi", "fd", "ripgrep")
     foreach ($tool in $tools) {
         if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
             Write-Host "  Installing $tool..." -ForegroundColor Gray

@@ -231,8 +231,8 @@ set -g @custom_copy_command 'pbcopy'
 {{-   if env "WAYLAND_DISPLAY" }}
 set -g @custom_copy_command 'wl-copy'
 {{-   else }}
-# X11 或未知环境，让 tmux-yank 自动检测
-# set -g @custom_copy_command 'xclip -selection clipboard'
+# X11 环境使用 xclip
+set -g @custom_copy_command 'xclip -selection clipboard'
 {{-   end }}
 {{ else if eq .chezmoi.os "windows" -}}
 # Windows (WSL): 使用 clip.exe

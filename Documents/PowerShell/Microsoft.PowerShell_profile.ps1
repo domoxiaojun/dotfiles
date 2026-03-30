@@ -69,7 +69,8 @@ if (Get-Command btop -ErrorAction SilentlyContinue) {
 # =========================
 # PATH 扩展
 # =========================
-$CustomBinPath = "$env:USERPROFILE\.antigravity\antigravity\bin"
-if (Test-Path $CustomBinPath) {
-    $env:PATH = "$CustomBinPath;$env:PATH"
+# 添加自定义 bin 目录到 PATH
+$LocalBinPath = "$env:USERPROFILE\.local\bin"
+if (Test-Path $LocalBinPath) {
+    $env:PATH = "$LocalBinPath;$env:PATH"
 }

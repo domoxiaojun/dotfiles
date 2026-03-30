@@ -96,10 +96,6 @@ fi
 # =========================
 # PATH additions
 # =========================
-{{ if eq .chezmoi.os "darwin" -}}
-export PATH="$HOME/.antigravity/antigravity/bin:$PATH"
-{{ end -}}
-# chezmoi
 export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
 
 

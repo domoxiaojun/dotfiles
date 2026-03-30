@@ -35,9 +35,9 @@
 - `delta` - Git diff 美化工具
 - `btop` - 系统资源监控
 - `glow` - Markdown 渲染器
+- `fx` - JSON 交互式查看器
 - `fd` - 更好的 find 替代品
 - `ripgrep` - 更好的 grep 替代品
-- `jq` - JSON 处理工具
 - `yazi` - 终端文件管理器
 
 ### Shell 插件
@@ -212,22 +212,22 @@ chezmoi managed
 | `Ctrl+s \|`   | 垂直分屏         |
 | `Ctrl+s -`    | 水平分屏         |
 | `Ctrl+s h/j/k/l` | Vim 风格切换面板 |
-| `Ctrl+s Ctrl+s`  | 保存会话      |
+| `Ctrl+s Ctrl+s`  | 发送 Ctrl+s (前缀本身) |
 | `Ctrl+s Ctrl+r`  | 恢复会话      |
 | `Ctrl+s r`    | 重载配置         |
 
 ### Shell 别名
 
-| 命令   | 原命令               | 功能               |
-| ------ | -------------------- | ------------------ |
-| `ls`   | `lsd`                | 彩色列表（带图标） |
-| `ll`   | `lsd -l`             | 详细列表           |
-| `la`   | `lsd -la`            | 显示隐藏文件       |
-| `lt`   | `lsd --tree`         | 树状显示           |
-| `cat`  | `bat --paging=never` | 语法高亮显示       |
-| `catt` | `bat --paging=never` | 带行号显示         |
-| `md`   | `glow`               | 渲染 Markdown      |
-| `top`  | `btop`               | 系统监控           |
+| 命令   | 原命令                           | 功能               |
+| ------ | -------------------------------- | ------------------ |
+| `ls`   | `lsd`                            | 彩色列表（带图标） |
+| `ll`   | `lsd -l`                         | 详细列表           |
+| `la`   | `lsd -la`                        | 显示隐藏文件       |
+| `lt`   | `lsd --tree`                     | 树状显示           |
+| `cat`  | `bat --style=plain --paging=never` | 语法高亮显示     |
+| `catt` | `bat --paging=never`             | 带行号显示         |
+| `md`   | `glow`                           | 渲染 Markdown      |
+| `top`  | `btop`                           | 系统监控           |
 
 ## 主题预览
 
@@ -258,8 +258,9 @@ chezmoi managed
 | 终端           | Ghostty            | Ghostty (COPR)      | Ghostty (脚本)     |
 | Shell          | Zsh                | Bash                | Bash               |
 | 包管理器       | Homebrew           | dnf                 | apt                |
-| 剪贴板         | pbcopy             | wl-copy (Wayland)   | xclip              |
+| 剪贴板         | pbcopy             | wl-copy (Wayland)   | xclip/wl-copy      |
 | bat 命令       | `bat`              | `bat`               | `batcat`           |
+| fd 命令        | `fd`               | `fd`                | `fdfind`           |
 
 ## 故障排除
 
@@ -317,10 +318,16 @@ curl -sS https://starship.rs/install.sh | sh
 
 ### 修改 Git 用户信息
 
-编辑 `.chezmoidata.yaml`:
+初始化时会自动读取 `git config` 中的用户信息。如果没有配置，可以选择：
+- 使用默认值
+- 从已有的 `git config` 读取
+- 手动输入
 
-```yaml
-email: "your-email@example.com"
+也可以直接配置 git：
+
+```bash
+git config --global user.name "Your Name"
+git config --global user.email "your-email@example.com"
 ```
 
 ### 在 Linux 上使用 Zsh
