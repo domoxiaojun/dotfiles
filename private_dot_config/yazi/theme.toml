@@ -1,0 +1,182 @@
+# Yazi 主题配置 - Catppuccin Mocha
+# 参考: https://github.com/catppuccin/yazi
+# 颜色参考: https://catppuccin.com/palette
+
+# Catppuccin Mocha 色板
+# rosewater = "#f5e0dc"
+# flamingo  = "#f2cdcd"
+# pink      = "#f5c2e7"
+# mauve     = "#cba6f7"
+# red       = "#f38ba8"
+# maroon    = "#eba0ac"
+# peach     = "#fab387"
+# yellow    = "#f9e2af"
+# green     = "#a6e3a1"
+# teal      = "#94e2d5"
+# sky       = "#89dceb"
+# sapphire  = "#74c7ec"
+# blue      = "#89b4fa"
+# lavender  = "#b4befe"
+# text      = "#cdd6f4"
+# subtext1  = "#bac2de"
+# subtext0  = "#a6adc8"
+# overlay2  = "#9399b2"
+# overlay1  = "#7f849c"
+# overlay0  = "#6c7086"
+# surface2  = "#585b70"
+# surface1  = "#45475a"
+# surface0  = "#313244"
+# base      = "#1e1e2e"
+# mantle    = "#181825"
+# crust     = "#11111b"
+
+[manager]
+cwd = { fg = "#94e2d5" }
+
+# 边框
+border_symbol = "│"
+border_style = { fg = "#585b70" }
+
+# 高亮
+hovered = { reversed = true }
+preview_hovered = { underline = true }
+
+# 查找匹配
+find_keyword = { fg = "#f9e2af", bold = true, italic = true, underline = true }
+find_position = { fg = "#f5c2e7", bg = "reset", bold = true, italic = true }
+
+# 标记
+marker_copied = { fg = "#a6e3a1", bg = "#a6e3a1" }
+marker_cut = { fg = "#f38ba8", bg = "#f38ba8" }
+marker_marked = { fg = "#94e2d5", bg = "#94e2d5" }
+marker_selected = { fg = "#89b4fa", bg = "#89b4fa" }
+
+# 标签页
+tab_active = { fg = "#1e1e2e", bg = "#cba6f7" }
+tab_inactive = { fg = "#cdd6f4", bg = "#45475a" }
+tab_width = 1
+
+# 计数
+count_copied = { fg = "#1e1e2e", bg = "#a6e3a1" }
+count_cut = { fg = "#1e1e2e", bg = "#f38ba8" }
+count_selected = { fg = "#1e1e2e", bg = "#89b4fa" }
+
+[status]
+separator_open = ""
+separator_close = ""
+separator_style = { fg = "#45475a", bg = "#45475a" }
+
+# 模式
+mode_normal = { fg = "#1e1e2e", bg = "#89b4fa", bold = true }
+mode_select = { fg = "#1e1e2e", bg = "#a6e3a1", bold = true }
+mode_unset = { fg = "#1e1e2e", bg = "#f2cdcd", bold = true }
+
+# 进度
+progress_label = { fg = "#cdd6f4", bold = true }
+progress_normal = { fg = "#89b4fa", bg = "#45475a" }
+progress_error = { fg = "#f38ba8", bg = "#45475a" }
+
+# 权限
+permissions_t = { fg = "#89b4fa" }
+permissions_r = { fg = "#f9e2af" }
+permissions_w = { fg = "#f38ba8" }
+permissions_x = { fg = "#a6e3a1" }
+permissions_s = { fg = "#6c7086" }
+
+[input]
+border = { fg = "#89b4fa" }
+title = {}
+value = {}
+selected = { reversed = true }
+
+[select]
+border = { fg = "#89b4fa" }
+active = { fg = "#f5c2e7", bold = true }
+inactive = {}
+
+[tasks]
+border = { fg = "#89b4fa" }
+title = {}
+hovered = { fg = "#f5c2e7", underline = true }
+
+[which]
+cols = 3
+mask = { bg = "#313244" }
+cand = { fg = "#94e2d5" }
+rest = { fg = "#9399b2" }
+desc = { fg = "#f5c2e7" }
+separator = "  "
+separator_style = { fg = "#585b70" }
+
+[help]
+on = { fg = "#94e2d5" }
+run = { fg = "#f5c2e7" }
+desc = {}
+hovered = { reversed = true, bold = true }
+footer = { fg = "#45475a", bg = "#cdd6f4" }
+
+[filetype]
+rules = [
+  # 图片
+  { mime = "image/*", fg = "#f5c2e7" },
+  
+  # 视频
+  { mime = "video/*", fg = "#cba6f7" },
+  
+  # 音频
+  { mime = "audio/*", fg = "#f9e2af" },
+  
+  # 压缩包
+  { mime = "application/zip", fg = "#fab387" },
+  { mime = "application/gzip", fg = "#fab387" },
+  { mime = "application/x-tar", fg = "#fab387" },
+  { mime = "application/x-bzip2", fg = "#fab387" },
+  { mime = "application/x-xz", fg = "#fab387" },
+  { mime = "application/x-7z-compressed", fg = "#fab387" },
+  { mime = "application/x-rar", fg = "#fab387" },
+  
+  # 文档
+  { mime = "application/pdf", fg = "#f38ba8" },
+  { mime = "application/msword", fg = "#89b4fa" },
+  { mime = "application/vnd.openxmlformats*", fg = "#89b4fa" },
+  
+  # 代码文件 (按语言着色)
+  { name = "*.md", fg = "#89b4fa" },
+  { name = "*.json", fg = "#f9e2af" },
+  { name = "*.toml", fg = "#fab387" },
+  { name = "*.yaml", fg = "#fab387" },
+  { name = "*.yml", fg = "#fab387" },
+  { name = "*.rs", fg = "#fab387" },
+  { name = "*.go", fg = "#89dceb" },
+  { name = "*.py", fg = "#f9e2af" },
+  { name = "*.js", fg = "#f9e2af" },
+  { name = "*.ts", fg = "#89b4fa" },
+  { name = "*.tsx", fg = "#89b4fa" },
+  { name = "*.jsx", fg = "#f9e2af" },
+  { name = "*.lua", fg = "#89b4fa" },
+  { name = "*.sh", fg = "#a6e3a1" },
+  { name = "*.bash", fg = "#a6e3a1" },
+  { name = "*.zsh", fg = "#a6e3a1" },
+  { name = "*.fish", fg = "#a6e3a1" },
+  
+  # 配置文件
+  { name = "*.conf", fg = "#94e2d5" },
+  { name = "*.config", fg = "#94e2d5" },
+  { name = ".env*", fg = "#f9e2af" },
+  { name = ".git*", fg = "#fab387" },
+  { name = "Makefile", fg = "#a6e3a1" },
+  { name = "Dockerfile", fg = "#89dceb" },
+  { name = "*.dockerfile", fg = "#89dceb" },
+  
+  # 锁文件
+  { name = "*.lock", fg = "#6c7086" },
+  { name = "package-lock.json", fg = "#6c7086" },
+  
+  # 特殊文件
+  { name = "LICENSE*", fg = "#9399b2" },
+  { name = "README*", fg = "#89b4fa", bold = true },
+]
+
+[icon]
+# 使用 Nerd Font 图标
+rules = []

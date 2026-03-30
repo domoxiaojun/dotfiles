@@ -37,6 +37,7 @@
 - `glow` - Markdown 渲染器
 - `fd` - 更好的 find 替代品
 - `ripgrep` - 更好的 grep 替代品
+- `jq` - JSON 处理工具
 - `yazi` - 终端文件管理器
 
 ### Shell 插件

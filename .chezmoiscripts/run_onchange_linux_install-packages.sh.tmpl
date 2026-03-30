@@ -3,6 +3,7 @@
 # 此脚本在 Linux 上 chezmoi apply 时自动运行
 # 用于安装必要的工具和依赖
 # 支持: Fedora (dnf), Ubuntu/Debian (apt)
+# version: 2.0.0
 
 set -e
 
@@ -293,9 +294,10 @@ if ! command -v yazi &> /dev/null; then
     if [ -n "$YAZI_VERSION" ] && curl -fsSLO "https://github.com/sxyazi/yazi/releases/latest/download/yazi-${YAZI_ARCH}.zip" 2>/dev/null; then
         unzip -o "yazi-${YAZI_ARCH}.zip" -d yazi-tmp
         sudo mv yazi-tmp/yazi-${YAZI_ARCH}/yazi /usr/local/bin/
+        sudo mv yazi-tmp/yazi-${YAZI_ARCH}/ya /usr/local/bin/
         rm -rf yazi-tmp "yazi-${YAZI_ARCH}.zip"
     elif command -v cargo &> /dev/null; then
-        cargo install --locked yazi-fm
+        cargo install --locked yazi-fm yazi-cli
     else
         echo "   ⚠️  无法安装 yazi（需要 cargo 或网络连接）"
     fi

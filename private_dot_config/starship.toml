@@ -13,6 +13,11 @@ $git_status\
 $python\
 $lua\
 $nodejs\
+$rust\
+$golang\
+$java\
+$docker_context\
+$package\
 $line_break\
 $character"""
 
@@ -46,4 +51,49 @@ format = "[$hostname]($style) "
 
 [username]
 show_always = false # 仅在非默认用户或 SSH 时显示
+
+# ============================================================
+# 编程语言检测
+# ============================================================
+
+[python]
+format = "[$symbol($version)]($style) "
+symbol = " "
+style = "yellow"
+
+[lua]
+format = "[$symbol($version)]($style) "
+symbol = " "
+style = "blue"
+
+[nodejs]
+format = "[$symbol($version)]($style) "
+symbol = " "
+style = "green"
+
+[rust]
+format = "[$symbol($version)]($style) "
+symbol = " "
+style = "bold red"
+
+[golang]
+format = "[$symbol($version)]($style) "
+symbol = " "
+style = "bold cyan"
+
+[java]
+format = "[$symbol($version)]($style) "
+symbol = " "
+style = "bold red"
+
+[docker_context]
+format = "[$symbol$context]($style) "
+symbol = " "
+style = "bold blue"
+only_with_files = true
+
+[package]
+format = "[$symbol$version]($style) "
+symbol = "󰏗 "
+style = "bold 208"
 

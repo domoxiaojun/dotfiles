@@ -1,0 +1,109 @@
+# Yazi 主配置
+# 参考: https://yazi-rs.github.io/docs/configuration/yazi
+
+[manager]
+# 显示隐藏文件
+show_hidden = false
+# 排序方式
+sort_by = "natural"
+sort_sensitive = false
+sort_reverse = false
+sort_dir_first = true
+# 行号模式: none, size, mtime, permissions
+linemode = "size"
+# 显示符号链接指向
+show_symlink = true
+
+[preview]
+# 最大预览宽度/高度
+max_width = 1000
+max_height = 1000
+# 图片预览缓存目录 (留空使用默认)
+cache_dir = ""
+
+[opener]
+# 编辑器
+edit = [
+  { run = '${EDITOR:-vim} "$@"', block = true, for = "unix" },
+  { run = 'code "%*"', orphan = true, for = "windows" },
+]
+# 系统默认程序打开
+open = [
+  { run = 'open "$@"', desc = "Open", for = "macos" },
+  { run = 'xdg-open "$@"', desc = "Open", for = "linux" },
+  { run = 'start "" "%*"', orphan = true, desc = "Open", for = "windows" },
+]
+# 在终端中运行
+reveal = [
+  { run = 'open -R "$1"', desc = "Reveal in Finder", for = "macos" },
+  { run = 'nautilus --select "$1"', desc = "Reveal in Files", for = "linux" },
+  { run = 'explorer /select,"%1"', orphan = true, desc = "Reveal in Explorer", for = "windows" },
+]
+
+[open]
+rules = [
+  # 文本文件 - 使用编辑器
+  { mime = "text/*", use = "edit" },
+  { mime = "application/json", use = "edit" },
+  { mime = "application/xml", use = "edit" },
+  { mime = "application/javascript", use = "edit" },
+  { mime = "application/x-sh", use = "edit" },
+  { mime = "application/x-shellscript", use = "edit" },
+  
+  # 媒体文件 - 使用系统默认程序
+  { mime = "image/*", use = "open" },
+  { mime = "video/*", use = "open" },
+  { mime = "audio/*", use = "open" },
+  
+  # 文档
+  { mime = "application/pdf", use = "open" },
+  
+  # 目录
+  { mime = "inode/directory", use = "open" },
+  
+  # 其他 - 默认打开
+  { mime = "*", use = "open" },
+]
+
+[tasks]
+# 并发任务数
+micro_workers = 10
+macro_workers = 25
+# 显示进度
+bizarre_retry = 5
+
+[plugin]
+# 预览器配置
+previewers = [
+  { name = "*/", run = "folder", sync = true },
+  { mime = "text/*", run = "code" },
+  { mime = "*/xml", run = "code" },
+  { mime = "*/javascript", run = "code" },
+  { mime = "*/x-wine-extension-ini", run = "code" },
+  { mime = "application/json", run = "json" },
+  { mime = "image/*", run = "image" },
+  { mime = "video/*", run = "video" },
+  { mime = "application/pdf", run = "pdf" },
+  { mime = "application/zip", run = "archive" },
+  { mime = "application/gzip", run = "archive" },
+  { mime = "application/x-tar", run = "archive" },
+  { mime = "application/x-bzip2", run = "archive" },
+  { mime = "application/x-xz", run = "archive" },
+  { mime = "application/x-7z-compressed", run = "archive" },
+  { mime = "application/x-rar", run = "archive" },
+  { name = "*", run = "file" },
+]
+
+[input]
+# 输入框配置
+cd_title = "切换目录:"
+create_title = "创建:"
+rename_title = "重命名:"
+filter_title = "过滤:"
+find_title = ["查找下一个:", "查找上一个:"]
+search_title = "搜索 (via fd):"
+shell_title = ["Shell:", "Shell (阻塞):"]
+
+[select]
+# 选择框配置
+open_title = "打开方式:"

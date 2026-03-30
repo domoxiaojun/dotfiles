@@ -11,6 +11,14 @@ if command -v lsd &> /dev/null; then
   alias lt='lsd --tree'
 fi
 
+# fd - 更好的 find
+{{ if eq .chezmoi.os "linux" -}}
+# Ubuntu/Debian 上 fd 命令名为 fdfind
+if command -v fdfind &> /dev/null && ! command -v fd &> /dev/null; then
+  alias fd='fdfind'
+fi
+{{ end -}}
+
 # bat - 彩色 cat（语法高亮）
 {{ if eq .chezmoi.os "linux" -}}
 # Ubuntu/Debian 上 bat 命令名为 batcat

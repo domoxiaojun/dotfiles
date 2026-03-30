@@ -2,6 +2,7 @@
 #!/bin/bash
 # 此脚本在 chezmoi apply 时自动运行
 # 用于安装必要的工具和依赖
+# version: 2.0.0
 
 set -e
 
@@ -26,7 +27,7 @@ fi
 
 # 安装核心工具
 echo "📦 安装终端和 Shell 工具..."
-brew install ghostty starship zsh-syntax-highlighting zsh-autosuggestions
+brew install ghostty starship zsh-syntax-highlighting zsh-fast-syntax-highlighting zsh-autosuggestions
 
 # 安装美化工具
 echo "🎨 安装终端美化工具..."
