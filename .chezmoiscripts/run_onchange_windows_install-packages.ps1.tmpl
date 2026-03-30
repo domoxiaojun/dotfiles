@@ -55,9 +55,19 @@ try {
         Write-Host "[INFO] Windows Terminal not found, skipping default shell setting" -ForegroundColor Gray
     }
 
+    # Check and install Git first
+    Write-Host "Checking Git..." -ForegroundColor Yellow
+    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+        Write-Host "  Installing Git..." -ForegroundColor Gray
+        scoop install git
+    }
+    else {
+        Write-Host "  [OK] Git installed" -ForegroundColor Green
+    }
+
     # Install core tools
     Write-Host "Installing terminal tools..." -ForegroundColor Yellow
-    $tools = @("git", "starship", "lsd", "bat", "delta", "btop", "glow", "fzf", "yazi")
+    $tools = @("starship", "lsd", "bat", "delta", "btop", "glow", "fzf", "yazi", "fd", "ripgrep", "jq")
     foreach ($tool in $tools) {
         if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
             Write-Host "  Installing $tool..." -ForegroundColor Gray
@@ -66,6 +76,28 @@ try {
         else {
             Write-Host "  [OK] $tool installed" -ForegroundColor Green
         }
+    }
+
+    # Configure YAZI_FILE_ONE for yazi file type detection (uses Git's file.exe)
+    Write-Host ""
+    Write-Host "Configuring YAZI_FILE_ONE environment variable..." -ForegroundColor Yellow
+    $gitPath = (Get-Command git -ErrorAction SilentlyContinue).Source
+    if ($gitPath) {
+        $gitRoot = Split-Path (Split-Path $gitPath)
+        $fileExePath = Join-Path $gitRoot "usr\bin\file.exe"
+        
+        if (Test-Path $fileExePath) {
+            [System.Environment]::SetEnvironmentVariable("YAZI_FILE_ONE", $fileExePath, "User")
+            $env:YAZI_FILE_ONE = $fileExePath
+            Write-Host "  [OK] YAZI_FILE_ONE set to: $fileExePath" -ForegroundColor Green
+        }
+        else {
+            Write-Host "  [WARN] file.exe not found at: $fileExePath" -ForegroundColor Yellow
+            Write-Host "         yazi may not detect file types correctly" -ForegroundColor Yellow
+        }
+    }
+    else {
+        Write-Host "  [WARN] Git not found, YAZI_FILE_ONE not configured" -ForegroundColor Yellow
     }
 
     # Install Nerd Font

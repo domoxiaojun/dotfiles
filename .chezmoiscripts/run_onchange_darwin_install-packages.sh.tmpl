@@ -15,13 +15,22 @@ else
     echo "✅ Homebrew 已安装"
 fi
 
+# 检查并安装 Git
+echo "📦 检查 Git..."
+if ! command -v git &> /dev/null; then
+    echo "🔧 安装 Git..."
+    brew install git
+else
+    echo "✅ Git 已安装"
+fi
+
 # 安装核心工具
 echo "📦 安装终端和 Shell 工具..."
-brew install git ghostty starship zsh-syntax-highlighting zsh-autosuggestions
+brew install ghostty starship zsh-syntax-highlighting zsh-autosuggestions
 
 # 安装美化工具
 echo "🎨 安装终端美化工具..."
-brew install lsd bat git-delta btop glow fx fzf yazi
+brew install lsd bat git-delta btop glow fx fzf yazi fd ripgrep jq
 
 # 安装 tmux 和插件管理器
 echo "🖥️  安装 Tmux..."

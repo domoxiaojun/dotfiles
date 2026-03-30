@@ -72,15 +72,31 @@ if [ "$PKG_MANAGER" = "dnf" ]; then
 fi
 
 # ============================================================
+# 检查并安装 Git
+# ============================================================
+echo ""
+echo "📦 检查 Git..."
+if ! command -v git &> /dev/null; then
+    echo "🔧 安装 Git..."
+    if [ "$PKG_MANAGER" = "apt" ]; then
+        sudo apt update
+        sudo apt install -y git || true
+    elif [ "$PKG_MANAGER" = "dnf" ]; then
+        sudo dnf install -y git || true
+    fi
+else
+    echo "✅ Git 已安装"
+fi
+
+# ============================================================
 # 安装基础工具
 # ============================================================
 echo ""
 echo "📦 安装基础工具..."
 if [ "$PKG_MANAGER" = "apt" ]; then
-    sudo apt update
-    sudo apt install -y git tmux fzf btop curl unzip fontconfig || true
+    sudo apt install -y tmux fzf btop curl unzip fontconfig || true
 elif [ "$PKG_MANAGER" = "dnf" ]; then
-    sudo dnf install -y git tmux fzf btop curl unzip fontconfig || true
+    sudo dnf install -y tmux fzf btop curl unzip fontconfig || true
 fi
 
 # ============================================================
@@ -248,6 +264,21 @@ if ! command -v rg &> /dev/null; then
     fi
 else
     echo "✅ ripgrep 已安装"
+fi
+
+# ============================================================
+# 安装 jq (JSON 处理，yazi 依赖)
+# ============================================================
+echo ""
+if ! command -v jq &> /dev/null; then
+    echo "📋 安装 jq..."
+    if [ "$PKG_MANAGER" = "apt" ]; then
+        sudo apt install -y jq || true
+    elif [ "$PKG_MANAGER" = "dnf" ]; then
+        sudo dnf install -y jq || true
+    fi
+else
+    echo "✅ jq 已安装"
 fi
 
 # ============================================================
