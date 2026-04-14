@@ -375,4 +375,4 @@ MIT
 
 ---
 
-Made with by Domo
+Made with ❤ by Domo

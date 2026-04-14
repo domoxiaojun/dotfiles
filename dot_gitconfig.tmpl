@@ -20,13 +20,12 @@
 	pager = delta
 {{- end }}
 
-[interactive]
 {{- if .git.delta.enabled }}
+
+[interactive]
 	diffFilter = delta --color-only
-{{- end }}
 
 [delta]
-{{- if .git.delta.enabled }}
 	navigate = true
 	light = false
 	side-by-side = {{ .git.delta.side_by_side }}

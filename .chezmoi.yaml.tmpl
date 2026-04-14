@@ -52,20 +52,13 @@ sourceDir: {{ .chezmoi.sourceDir | quote }}
 {{ if eq .chezmoi.os "windows" -}}
 interpreters:
   ps1:
-    command: pwsh
+    command: {{ if lookPath "pwsh" }}pwsh{{ else }}powershell{{ end }}
     args: ["-NoLogo", "-NonInteractive"]
 {{ end -}}
 
 data:
   name: {{ $name | quote }}
   email: {{ $email | quote }}
-
-  # 终端配置
-  terminal:
-    ghostty:
-      theme: "catppuccin-mocha"
-      font: "MesloLGS Nerd Font Mono"
-      font_size: 13.5
 
   # Git 配置
   git:
@@ -80,9 +73,6 @@ data:
   shell:
     starship:
       enabled: {{ if lookPath "starship" }}true{{ else }}false{{ end }}
-    zsh_plugins:
-      - "zsh-syntax-highlighting"
-      - "zsh-autosuggestions"
 
   # 工具配置
   tools:

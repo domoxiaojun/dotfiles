@@ -3,11 +3,15 @@
 # 此脚本在 Linux 上 chezmoi apply 时自动运行
 # 用于安装必要的工具和依赖
 # 支持: Fedora (dnf), Ubuntu/Debian (apt)
-# version: 2.0.0
+# version: 2.1.0
 
 set -e
 
 echo "🚀 开始安装依赖工具..."
+
+# 创建临时目录，退出时自动清理
+WORK_DIR=$(mktemp -d)
+trap 'rm -rf "$WORK_DIR"' EXIT
 
 # 检测包管理器和发行版
 DISTRO_ID=""
@@ -77,7 +81,7 @@ fi
 if [ "$PKG_MANAGER" = "dnf" ]; then
     echo ""
     echo "📦 配置 Fedora 软件源..."
-    
+
     # Ghostty COPR
     if ! dnf copr list 2>/dev/null | grep -q "scottames/ghostty"; then
         echo "   启用 Ghostty COPR..."
@@ -157,10 +161,10 @@ if ! command -v ghostty &> /dev/null; then
     echo "👻 安装 Ghostty..."
     if [ "$PKG_MANAGER" = "apt" ]; then
         # Ubuntu: 使用社区维护的安装脚本
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)"
+        /bin/bash -c "$(curl -fsSL --connect-timeout 10 --max-time 120 https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)" || true
     elif [ "$PKG_MANAGER" = "dnf" ]; then
         # Fedora: 使用 COPR (已在上面启用)
-        sudo dnf install -y ghostty
+        sudo dnf install -y ghostty || true
     fi
 else
     echo "✅ Ghostty 已安装"
@@ -172,7 +176,7 @@ fi
 echo ""
 if ! command -v starship &> /dev/null; then
     echo "🚀 安装 Starship..."
-    curl -sS https://starship.rs/install.sh | sh -s -- -y
+    curl -sS --connect-timeout 10 --max-time 60 https://starship.rs/install.sh | sh -s -- -y || true
 else
     echo "✅ Starship 已安装"
 fi
@@ -200,13 +204,12 @@ if ! command -v lsd &> /dev/null; then
     echo "📂 安装 lsd..."
     if [ "$PKG_MANAGER" = "apt" ]; then
         # lsd 不在默认 apt 源中，使用 dpkg
-        LSD_VERSION=$(curl -s https://api.github.com/repos/lsd-rs/lsd/releases/latest | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/^v//')
+        LSD_VERSION=$(curl -s --connect-timeout 10 --max-time 30 https://api.github.com/repos/lsd-rs/lsd/releases/latest | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/^v//')
         if [ -z "$LSD_VERSION" ]; then
             echo "   ⚠️  无法获取 lsd 最新版本号，跳过安装"
         else
-            curl -fsSLO "https://github.com/lsd-rs/lsd/releases/latest/download/lsd_${LSD_VERSION}_${ARCH_SUFFIX}.deb"
-            sudo dpkg -i "lsd_${LSD_VERSION}_${ARCH_SUFFIX}.deb" || true
-            rm -f "lsd_${LSD_VERSION}_${ARCH_SUFFIX}.deb"
+            curl -fsSL --connect-timeout 10 --max-time 120 -o "$WORK_DIR/lsd.deb" "https://github.com/lsd-rs/lsd/releases/latest/download/lsd_${LSD_VERSION}_${ARCH_SUFFIX}.deb"
+            sudo dpkg -i "$WORK_DIR/lsd.deb" || true
         fi
     elif [ "$PKG_MANAGER" = "dnf" ]; then
         sudo dnf install -y lsd || true
@@ -222,13 +225,12 @@ echo ""
 if ! command -v delta &> /dev/null; then
     echo "📊 安装 git-delta..."
     if [ "$PKG_MANAGER" = "apt" ]; then
-        DELTA_VERSION=$(curl -s https://api.github.com/repos/dandavison/delta/releases/latest | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4)
+        DELTA_VERSION=$(curl -s --connect-timeout 10 --max-time 30 https://api.github.com/repos/dandavison/delta/releases/latest | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/^v//')
         if [ -z "$DELTA_VERSION" ]; then
             echo "   ⚠️  无法获取 delta 最新版本号，跳过安装"
         else
-            curl -fsSLO "https://github.com/dandavison/delta/releases/latest/download/git-delta_${DELTA_VERSION}_${ARCH_SUFFIX}.deb"
-            sudo dpkg -i "git-delta_${DELTA_VERSION}_${ARCH_SUFFIX}.deb" || true
-            rm -f "git-delta_${DELTA_VERSION}_${ARCH_SUFFIX}.deb"
+            curl -fsSL --connect-timeout 10 --max-time 120 -o "$WORK_DIR/delta.deb" "https://github.com/dandavison/delta/releases/latest/download/git-delta_${DELTA_VERSION}_${ARCH_SUFFIX}.deb"
+            sudo dpkg -i "$WORK_DIR/delta.deb" || true
         fi
     elif [ "$PKG_MANAGER" = "dnf" ]; then
         sudo dnf install -y git-delta || true
@@ -245,9 +247,9 @@ if ! command -v glow &> /dev/null; then
     echo "✨ 安装 glow..."
     if [ "$PKG_MANAGER" = "apt" ]; then
         sudo mkdir -p /etc/apt/keyrings
-        curl -fsSL https://repo.charm.sh/apt/gpg.key | sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
+        curl -fsSL --connect-timeout 10 --max-time 30 https://repo.charm.sh/apt/gpg.key | sudo gpg --batch --yes --dearmor -o /etc/apt/keyrings/charm.gpg
         echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
-        sudo apt update && sudo apt install -y glow
+        sudo apt update && sudo apt install -y glow || true
     elif [ "$PKG_MANAGER" = "dnf" ]; then
         sudo dnf install -y glow || true
     fi
@@ -291,12 +293,11 @@ fi
 echo ""
 if ! command -v fx &> /dev/null; then
     echo "📋 安装 fx..."
-    FX_VERSION=$(curl -s https://api.github.com/repos/antonmedv/fx/releases/latest | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4)
+    FX_VERSION=$(curl -s --connect-timeout 10 --max-time 30 https://api.github.com/repos/antonmedv/fx/releases/latest | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4)
     if [ -n "$FX_VERSION" ]; then
-        curl -fsSLO "https://github.com/antonmedv/fx/releases/latest/download/fx_linux_${ARCH_SUFFIX}.tar.gz"
-        tar -xzf "fx_linux_${ARCH_SUFFIX}.tar.gz"
-        sudo mv fx /usr/local/bin/
-        rm -f "fx_linux_${ARCH_SUFFIX}.tar.gz"
+        curl -fsSL --connect-timeout 10 --max-time 120 -o "$WORK_DIR/fx.tar.gz" "https://github.com/antonmedv/fx/releases/latest/download/fx_linux_${ARCH_SUFFIX}.tar.gz"
+        tar -xzf "$WORK_DIR/fx.tar.gz" -C "$WORK_DIR"
+        sudo mv "$WORK_DIR/fx" /usr/local/bin/
     else
         echo "   ⚠️  无法获取 fx 版本号，跳过安装"
     fi
@@ -311,13 +312,12 @@ echo ""
 if ! command -v yazi &> /dev/null; then
     echo "📁 安装 yazi..."
     # 优先使用预编译二进制，cargo 编译耗时长
-    YAZI_VERSION=$(curl -s https://api.github.com/repos/sxyazi/yazi/releases/latest | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/^v//')
+    YAZI_VERSION=$(curl -s --connect-timeout 10 --max-time 30 https://api.github.com/repos/sxyazi/yazi/releases/latest | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/^v//')
     YAZI_ARCH="${ARCH_ALT}-unknown-linux-musl"
-    if [ -n "$YAZI_VERSION" ] && curl -fsSLO "https://github.com/sxyazi/yazi/releases/latest/download/yazi-${YAZI_ARCH}.zip" 2>/dev/null; then
-        unzip -o "yazi-${YAZI_ARCH}.zip" -d yazi-tmp
-        sudo mv yazi-tmp/yazi-${YAZI_ARCH}/yazi /usr/local/bin/
-        sudo mv yazi-tmp/yazi-${YAZI_ARCH}/ya /usr/local/bin/
-        rm -rf yazi-tmp "yazi-${YAZI_ARCH}.zip"
+    if [ -n "$YAZI_VERSION" ] && curl -fsSL --connect-timeout 10 --max-time 120 -o "$WORK_DIR/yazi.zip" "https://github.com/sxyazi/yazi/releases/latest/download/yazi-${YAZI_ARCH}.zip" 2>/dev/null; then
+        unzip -o "$WORK_DIR/yazi.zip" -d "$WORK_DIR/yazi-tmp"
+        sudo mv "$WORK_DIR/yazi-tmp/yazi-${YAZI_ARCH}/yazi" /usr/local/bin/
+        sudo mv "$WORK_DIR/yazi-tmp/yazi-${YAZI_ARCH}/ya" /usr/local/bin/
     elif command -v cargo &> /dev/null; then
         cargo install --locked yazi-fm yazi-cli
     else
@@ -328,14 +328,18 @@ else
 fi
 
 # ============================================================
-# 安装 zsh 插件 (系统级)
+# 安装 zsh 插件 (仅在 zsh 已安装时)
 # ============================================================
 echo ""
-echo "🔌 安装 Zsh 插件..."
-if [ "$PKG_MANAGER" = "apt" ]; then
-    sudo apt install -y zsh-syntax-highlighting zsh-autosuggestions || true
-elif [ "$PKG_MANAGER" = "dnf" ]; then
-    sudo dnf install -y zsh-syntax-highlighting zsh-autosuggestions || true
+if command -v zsh &> /dev/null; then
+    echo "🔌 安装 Zsh 插件..."
+    if [ "$PKG_MANAGER" = "apt" ]; then
+        sudo apt install -y zsh-syntax-highlighting zsh-autosuggestions || true
+    elif [ "$PKG_MANAGER" = "dnf" ]; then
+        sudo dnf install -y zsh-syntax-highlighting zsh-autosuggestions || true
+    fi
+else
+    echo "📋 跳过 Zsh 插件 (zsh 未安装)"
 fi
 
 # ============================================================
@@ -356,12 +360,12 @@ echo ""
 if ! fc-list 2>/dev/null | grep -qi "MesloLGS Nerd Font"; then
     echo "🔤 安装 MesloLGS Nerd Font..."
     mkdir -p ~/.local/share/fonts
-    cd ~/.local/share/fonts
-    curl -fsSLO "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/Meslo.tar.xz"
-    tar -xf Meslo.tar.xz
-    rm -f Meslo.tar.xz
-    fc-cache -f
-    cd -
+    if curl -fsSL --connect-timeout 10 --max-time 120 -o "$WORK_DIR/Meslo.tar.xz" "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/Meslo.tar.xz"; then
+        tar -xf "$WORK_DIR/Meslo.tar.xz" -C ~/.local/share/fonts
+        fc-cache -f
+    else
+        echo "   ⚠️  Nerd Font 下载失败，跳过"
+    fi
 else
     echo "✅ Nerd Font 已安装"
 fi

@@ -42,10 +42,12 @@ if type brew &>/dev/null; then
   BREW_PREFIX=$(brew --prefix)
   [ -f ${BREW_PREFIX}/share/zsh-autosuggestions/zsh-autosuggestions.zsh ] && \
     source ${BREW_PREFIX}/share/zsh-autosuggestions/zsh-autosuggestions.zsh
-  [ -f ${BREW_PREFIX}/opt/zsh-fast-syntax-highlighting/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh ] && \
+  # fast-syntax-highlighting 和 syntax-highlighting 互斥，优先 fast 版本
+  if [ -f ${BREW_PREFIX}/opt/zsh-fast-syntax-highlighting/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh ]; then
     source ${BREW_PREFIX}/opt/zsh-fast-syntax-highlighting/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh
-  [ -f ${BREW_PREFIX}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] && \
+  elif [ -f ${BREW_PREFIX}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then
     source ${BREW_PREFIX}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+  fi
 fi
 {{ else -}}
 # Linux: 常见安装路径
