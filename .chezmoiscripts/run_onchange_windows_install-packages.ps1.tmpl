@@ -1,133 +1,417 @@
 {{ if eq .chezmoi.os "windows" -}}
 #!/usr/bin/env pwsh
-# Windows package install script
-# Runs automatically on chezmoi apply
-# version: 2.0.0
+# Windows 包安装脚本
+# chezmoi apply 时自动执行
+# version: 2.1.0
+#
+# 修改记录:
+#   2.1.0 - 添加安装结果跟踪和汇总报告
+#   2.0.0 - 修复 Scoop 路径硬编码、工具列表补全、容错机制、字体包名
 
+# 全局错误处理：仅对关键步骤使用 Stop，工具安装区域使用 Continue
 $ErrorActionPreference = 'Stop'
-try {
 
-    Write-Host "Installing Windows terminal tools..." -ForegroundColor Cyan
+# ============================================================
+# 安装结果跟踪
+# ============================================================
+$script:Results = @{
+    Success  = [System.Collections.ArrayList]::new()
+    Failed   = [System.Collections.ArrayList]::new()
+    Skipped  = [System.Collections.ArrayList]::new()
+}
 
-    # Check and install Scoop
-    if (-not (Get-Command scoop -ErrorAction SilentlyContinue) -and -not (Test-Path "$env:USERPROFILE\scoop")) {
-        Write-Host "Scoop not found, installing..." -ForegroundColor Yellow
+function Add-Result {
+    param([string]$Name, [string]$Status, [string]$Detail = "")
+    switch ($Status) {
+        'success'  { [void]$script:Results.Success.Add(@{ Name = $Name; Detail = $Detail }) }
+        'failed'   { [void]$script:Results.Failed.Add(@{ Name = $Name; Detail = $Detail }) }
+        'skipped'  { [void]$script:Results.Skipped.Add(@{ Name = $Name; Detail = $Detail }) }
+    }
+}
+
+Write-Host "`n========================================" -ForegroundColor Cyan
+Write-Host "  Windows 终端工具安装脚本 v2.1" -ForegroundColor Cyan
+Write-Host "========================================`n" -ForegroundColor Cyan
+
+# ============================================================
+# 辅助函数
+# ============================================================
+
+function Install-ScoopPackage {
+    param(
+        [string]$Name,
+        [string]$DisplayName = $Name,
+        [string]$CommandName = $Name
+    )
+    if (Get-Command $CommandName -ErrorAction SilentlyContinue) {
+        Write-Host "  [OK] $DisplayName 已安装" -ForegroundColor Green
+        Add-Result -Name $DisplayName -Status 'skipped' -Detail '已安装'
+        return
+    }
+    Write-Host "  安装 $DisplayName ..." -ForegroundColor Gray
+    try {
+        $output = scoop install $Name 2>&1
+        $exitCode = $LASTEXITCODE
+        $output | Out-Host
+
+        # 再次检查命令是否可用（scoop 可能报 warning 但实际安装成功）
+        if (Get-Command $CommandName -ErrorAction SilentlyContinue) {
+            Write-Host "  [OK] $DisplayName 安装完成" -ForegroundColor Green
+            Add-Result -Name $DisplayName -Status 'success'
+        }
+        elseif ($exitCode -eq 0) {
+            Write-Host "  [OK] $DisplayName 安装完成（需重启终端生效）" -ForegroundColor Green
+            Add-Result -Name $DisplayName -Status 'success' -Detail '需重启终端'
+        }
+        else {
+            Write-Host "  [WARN] $DisplayName 安装可能未成功 (exit: $exitCode)" -ForegroundColor Yellow
+            $errorMsg = ($output | Where-Object { $_ -match 'Error|error' } | Select-Object -First 1) -as [string]
+            Add-Result -Name $DisplayName -Status 'failed' -Detail ($errorMsg ?? "exit code: $exitCode")
+        }
+    }
+    catch {
+        Write-Host "  [FAIL] $DisplayName 安装失败: $_" -ForegroundColor Red
+        Add-Result -Name $DisplayName -Status 'failed' -Detail "$_"
+    }
+}
+
+# ============================================================
+# 1. 检测 / 安装 Scoop（动态路径）
+# ============================================================
+Write-Host "[1/8] 检查 Scoop ..." -ForegroundColor Cyan
+
+$ScoopDir = if ($env:SCOOP) { $env:SCOOP } else { "$env:USERPROFILE\scoop" }
+
+if (-not (Get-Command scoop -ErrorAction SilentlyContinue) -and -not (Test-Path $ScoopDir)) {
+    Write-Host "  Scoop 未安装，正在安装..." -ForegroundColor Yellow
+    try {
         Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
         Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+        Add-Result -Name 'Scoop' -Status 'success'
+    }
+    catch {
+        Write-Host "  [FAIL] Scoop 安装失败: $_" -ForegroundColor Red
+        Add-Result -Name 'Scoop' -Status 'failed' -Detail "$_"
+        Write-Host "`n无法继续安装，Scoop 是所有工具的前置依赖。" -ForegroundColor Red
+        exit 1
+    }
+}
+else {
+    Write-Host "  [OK] Scoop 已安装 ($ScoopDir)" -ForegroundColor Green
+    Add-Result -Name 'Scoop' -Status 'skipped' -Detail '已安装'
+}
+
+# 确保 Scoop shims 在当前会话的 PATH 中
+$env:PATH = "$ScoopDir\shims;$env:PATH"
+
+# ============================================================
+# 2. 确保 Git 可用（scoop bucket 的前置依赖）
+# ============================================================
+Write-Host "`n[2/8] 检查 Git（Scoop 前置依赖）..." -ForegroundColor Cyan
+
+if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Host "  Git 未安装，正在通过 Scoop 安装..." -ForegroundColor Yellow
+    try {
+        scoop install git
+        Add-Result -Name 'Git' -Status 'success'
+    }
+    catch {
+        Write-Host "  [FAIL] Git 安装失败: $_" -ForegroundColor Red
+        Add-Result -Name 'Git' -Status 'failed' -Detail "$_"
+        Write-Host "`n无法继续安装，Git 是 Scoop bucket 的前置依赖。" -ForegroundColor Red
+        exit 1
+    }
+}
+else {
+    Write-Host "  [OK] Git 已安装" -ForegroundColor Green
+    Add-Result -Name 'Git' -Status 'skipped' -Detail '已安装'
+}
+
+# ============================================================
+# 3. 添加 Scoop buckets
+# ============================================================
+Write-Host "`n[3/8] 配置 Scoop buckets ..." -ForegroundColor Cyan
+
+$buckets = scoop bucket list 2>$null | Select-Object -ExpandProperty Name -ErrorAction SilentlyContinue
+foreach ($bucket in @('extras', 'nerd-fonts')) {
+    if ($buckets -notcontains $bucket) {
+        Write-Host "  添加 $bucket bucket ..." -ForegroundColor Gray
+        try {
+            scoop bucket add $bucket
+            Add-Result -Name "Bucket: $bucket" -Status 'success'
+        }
+        catch {
+            Write-Host "  [WARN] $bucket bucket 添加失败: $_" -ForegroundColor Yellow
+            Add-Result -Name "Bucket: $bucket" -Status 'failed' -Detail "$_"
+        }
     }
     else {
-        Write-Host "[OK] Scoop installed" -ForegroundColor Green
+        Write-Host "  [OK] $bucket bucket 已存在" -ForegroundColor Green
+        Add-Result -Name "Bucket: $bucket" -Status 'skipped' -Detail '已存在'
     }
+}
 
-    # Ensure Scoop is available in current session
-    $env:PATH = "$env:USERPROFILE\scoop\shims;$env:PATH"
+# ============================================================
+# 4. 安装 PowerShell 7 并配置 Windows Terminal
+# ============================================================
+Write-Host "`n[4/8] 检查 PowerShell 7 ..." -ForegroundColor Cyan
 
-    # Add extras bucket
-    scoop bucket add extras 2>$null
-
-    # Install latest PowerShell (pwsh)
-    if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
-        Write-Host "Installing PowerShell 7..." -ForegroundColor Yellow
+if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
+    Write-Host "  安装 PowerShell 7 ..." -ForegroundColor Yellow
+    try {
         scoop install pwsh
+        Add-Result -Name 'PowerShell 7' -Status 'success'
     }
-    else {
-        Write-Host "[OK] PowerShell 7 installed" -ForegroundColor Green
+    catch {
+        Write-Host "  [WARN] PowerShell 7 安装失败: $_" -ForegroundColor Yellow
+        Add-Result -Name 'PowerShell 7' -Status 'failed' -Detail "$_"
     }
+}
+else {
+    Write-Host "  [OK] PowerShell 7 已安装" -ForegroundColor Green
+    Add-Result -Name 'PowerShell 7' -Status 'skipped' -Detail '已安装'
+}
 
-    # Set PowerShell 7 as default in Windows Terminal
-    $wtSettingsPath = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
-    if (Test-Path $wtSettingsPath) {
-        Write-Host "Setting PowerShell 7 as default terminal..." -ForegroundColor Yellow
+# 设置 PowerShell 7 为 Windows Terminal 默认
+$wtSettingsPath = "$env:LOCALAPPDATA\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\LocalState\settings.json"
+if (Test-Path $wtSettingsPath) {
+    Write-Host "  配置 Windows Terminal 默认 shell ..." -ForegroundColor Gray
+    try {
         $wtSettings = Get-Content $wtSettingsPath -Raw | ConvertFrom-Json
-        
-        # Find pwsh profile guid
-        $pwshProfile = $wtSettings.profiles.list | Where-Object { $_.name -like "*PowerShell*" -and $_.source -eq "Windows.Terminal.PowershellCore" }
+
+        # 查找 pwsh profile guid
+        $pwshProfile = $wtSettings.profiles.list | Where-Object {
+            $_.name -like "*PowerShell*" -and $_.source -eq "Windows.Terminal.PowershellCore"
+        }
         if ($pwshProfile) {
             $wtSettings.defaultProfile = $pwshProfile.guid
             $wtSettings | ConvertTo-Json -Depth 100 | Set-Content $wtSettingsPath -Encoding UTF8
-            Write-Host "[OK] PowerShell 7 set as default" -ForegroundColor Green
+            Write-Host "  [OK] PowerShell 7 已设为默认 shell" -ForegroundColor Green
         }
         else {
-            Write-Host "[WARN] PowerShell 7 profile not found in Windows Terminal, please set manually" -ForegroundColor Yellow
+            Write-Host "  [INFO] 未找到 PowerShell 7 profile，请手动设置" -ForegroundColor Yellow
         }
     }
-    else {
-        Write-Host "[INFO] Windows Terminal not found, skipping default shell setting" -ForegroundColor Gray
+    catch {
+        Write-Host "  [WARN] 配置 Windows Terminal 失败: $_" -ForegroundColor Yellow
     }
-
-    # Check and install Git first
-    Write-Host "Checking Git..." -ForegroundColor Yellow
-    if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
-        Write-Host "  Installing Git..." -ForegroundColor Gray
-        scoop install git
-    }
-    else {
-        Write-Host "  [OK] Git installed" -ForegroundColor Green
-    }
-
-    # Install core tools
-    Write-Host "Installing terminal tools..." -ForegroundColor Yellow
-    $tools = @("starship", "lsd", "bat", "delta", "btop", "glow", "fx", "fzf", "yazi", "fd", "ripgrep")
-    foreach ($tool in $tools) {
-        if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) {
-            Write-Host "  Installing $tool..." -ForegroundColor Gray
-            scoop install $tool
-        }
-        else {
-            Write-Host "  [OK] $tool installed" -ForegroundColor Green
-        }
-    }
-
-    # Configure YAZI_FILE_ONE for yazi file type detection (uses Git's file.exe)
-    Write-Host ""
-    Write-Host "Configuring YAZI_FILE_ONE environment variable..." -ForegroundColor Yellow
-    $gitPath = (Get-Command git -ErrorAction SilentlyContinue).Source
-    if ($gitPath) {
-        $gitRoot = Split-Path (Split-Path $gitPath)
-        $fileExePath = Join-Path $gitRoot "usr\bin\file.exe"
-        
-        if (Test-Path $fileExePath) {
-            [System.Environment]::SetEnvironmentVariable("YAZI_FILE_ONE", $fileExePath, "User")
-            $env:YAZI_FILE_ONE = $fileExePath
-            Write-Host "  [OK] YAZI_FILE_ONE set to: $fileExePath" -ForegroundColor Green
-        }
-        else {
-            Write-Host "  [WARN] file.exe not found at: $fileExePath" -ForegroundColor Yellow
-            Write-Host "         yazi may not detect file types correctly" -ForegroundColor Yellow
-        }
-    }
-    else {
-        Write-Host "  [WARN] Git not found, YAZI_FILE_ONE not configured" -ForegroundColor Yellow
-    }
-
-    # Install Nerd Font
-    Write-Host "Installing Nerd Font..." -ForegroundColor Yellow
-    scoop bucket add nerd-fonts 2>$null
-    scoop install Meslo-NF-Mono 2>$null
-
-    Write-Host ""
-    Write-Host "[OK] All dependencies installed!" -ForegroundColor Green
-
-    # Sync PowerShell Profile
-    $SourceProfile = Join-Path (Split-Path -Parent $PSScriptRoot) "Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
-    if (Test-Path $SourceProfile) {
-        Write-Host "Syncing Profile to $PROFILE ..." -ForegroundColor Cyan
-        New-Item -ItemType Directory -Force -Path (Split-Path $PROFILE) | Out-Null
-        Copy-Item $SourceProfile $PROFILE -Force
-    }
-
-    Write-Host ""
-    Write-Host "Next steps:" -ForegroundColor Cyan
-    Write-Host "  1. Restart PowerShell"
-    Write-Host "  2. Set 'MesloLGS NF' font in Windows Terminal settings"
-    Write-Host "  3. Enjoy your new terminal!"
-
-    exit 0
-
 }
-catch {
-    Write-Host "Error: $_" -ForegroundColor Red
-    Write-Host "Please check the error and retry" -ForegroundColor Yellow
+else {
+    Write-Host "  [INFO] 未检测到 Windows Terminal，跳过默认 shell 设置" -ForegroundColor Gray
+}
+
+# ============================================================
+# 5. 安装终端工具（容错：单个失败不影响后续）
+# ============================================================
+Write-Host "`n[5/8] 安装终端工具 ..." -ForegroundColor Cyan
+
+# 临时降低错误级别，避免 scoop 内部错误中断脚本
+$ErrorActionPreference = 'Continue'
+
+# 核心工具列表
+Install-ScoopPackage -Name "starship" -DisplayName "Starship (prompt)"
+Install-ScoopPackage -Name "lsd" -DisplayName "lsd (彩色 ls)"
+Install-ScoopPackage -Name "bat" -DisplayName "bat (彩色 cat)"
+Install-ScoopPackage -Name "delta" -DisplayName "delta (git diff 美化)"
+Install-ScoopPackage -Name "btop" -DisplayName "btop (系统监控)"
+Install-ScoopPackage -Name "glow" -DisplayName "glow (Markdown 渲染)"
+Install-ScoopPackage -Name "fzf" -DisplayName "fzf (模糊搜索)"
+Install-ScoopPackage -Name "yazi" -DisplayName "yazi (文件管理器)"
+Install-ScoopPackage -Name "fd" -DisplayName "fd (更好的 find)"
+Install-ScoopPackage -Name "ripgrep" -DisplayName "ripgrep (更好的 grep)" -CommandName "rg"
+Install-ScoopPackage -Name "fx" -DisplayName "fx (JSON 查看器)"
+
+# 恢复错误级别
+$ErrorActionPreference = 'Stop'
+
+# ============================================================
+# 6. 配置 YAZI_FILE_ONE（yazi 文件类型检测）
+# ============================================================
+Write-Host "`n[6/8] 配置 YAZI_FILE_ONE 环境变量 ..." -ForegroundColor Cyan
+
+$gitPath = (Get-Command git -ErrorAction SilentlyContinue).Source
+if ($gitPath) {
+    $gitRoot = Split-Path (Split-Path $gitPath)
+    $fileExePath = Join-Path $gitRoot "usr\bin\file.exe"
+
+    if (Test-Path $fileExePath) {
+        [System.Environment]::SetEnvironmentVariable("YAZI_FILE_ONE", $fileExePath, "User")
+        $env:YAZI_FILE_ONE = $fileExePath
+        Write-Host "  [OK] YAZI_FILE_ONE = $fileExePath" -ForegroundColor Green
+        Add-Result -Name 'YAZI_FILE_ONE' -Status 'success'
+    }
+    else {
+        Write-Host "  [WARN] file.exe 未找到: $fileExePath" -ForegroundColor Yellow
+        Write-Host "         yazi 可能无法正确检测文件类型" -ForegroundColor Yellow
+        Add-Result -Name 'YAZI_FILE_ONE' -Status 'failed' -Detail "file.exe 未找到"
+    }
+}
+else {
+    Write-Host "  [WARN] Git 未安装，跳过 YAZI_FILE_ONE 配置" -ForegroundColor Yellow
+    Add-Result -Name 'YAZI_FILE_ONE' -Status 'skipped' -Detail 'Git 未安装'
+}
+
+# ============================================================
+# 7. 安装 Nerd Font
+# ============================================================
+Write-Host "`n[7/8] 安装 Nerd Font ..." -ForegroundColor Cyan
+
+# 检查字体是否已安装（查注册表 + 用户字体目录 + Scoop 目录）
+$fontInstalled = $false
+
+$sysFonts = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts' -ErrorAction SilentlyContinue
+if ($sysFonts) {
+    foreach ($font in $sysFonts.PSObject.Properties) {
+        if ($font.Name -like "*Meslo*Nerd*") { $fontInstalled = $true; break }
+    }
+}
+if (-not $fontInstalled) {
+    $userFontPath = "$env:LOCALAPPDATA\Microsoft\Windows\Fonts"
+    if (Test-Path "$userFontPath\*Meslo*Nerd*") { $fontInstalled = $true }
+}
+if (-not $fontInstalled) {
+    if (Test-Path "$ScoopDir\apps\Meslo-NF") { $fontInstalled = $true }
+}
+
+if ($fontInstalled) {
+    Write-Host "  [OK] Meslo Nerd Font 已安装" -ForegroundColor Green
+    Add-Result -Name 'Meslo Nerd Font' -Status 'skipped' -Detail '已安装'
+}
+else {
+    Write-Host "  安装 Meslo Nerd Font ..." -ForegroundColor Gray
+    try {
+        $output = scoop install Meslo-NF 2>&1
+        $output | Out-Host
+        if (Test-Path "$ScoopDir\apps\Meslo-NF") {
+            Write-Host "  [OK] Meslo Nerd Font 安装完成" -ForegroundColor Green
+            Add-Result -Name 'Meslo Nerd Font' -Status 'success'
+        }
+        else {
+            Write-Host "  [WARN] Meslo Nerd Font 安装可能未成功" -ForegroundColor Yellow
+            Add-Result -Name 'Meslo Nerd Font' -Status 'failed' -Detail '安装后未检测到字体文件'
+        }
+    }
+    catch {
+        Write-Host "  [FAIL] 字体安装失败: $_" -ForegroundColor Red
+        Add-Result -Name 'Meslo Nerd Font' -Status 'failed' -Detail "$_"
+    }
+}
+
+# ============================================================
+# 8. 安装报告
+# ============================================================
+Write-Host "`n`n" -NoNewline
+Write-Host "╔══════════════════════════════════════════════════╗" -ForegroundColor Cyan
+Write-Host "║             安 装 报 告                         ║" -ForegroundColor Cyan
+Write-Host "╠══════════════════════════════════════════════════╣" -ForegroundColor Cyan
+
+# 已安装（跳过）
+if ($script:Results.Skipped.Count -gt 0) {
+    Write-Host "║" -ForegroundColor Cyan -NoNewline
+    Write-Host "  ✅ 已安装 ($($script:Results.Skipped.Count)):" -ForegroundColor Green -NoNewline
+    Write-Host (" " * (49 - 17 - "$($script:Results.Skipped.Count)".Length)) -NoNewline
+    Write-Host "║" -ForegroundColor Cyan
+    foreach ($item in $script:Results.Skipped) {
+        $line = "     $($item.Name)"
+        $pad = 49 - $line.Length
+        if ($pad -lt 1) { $pad = 1 }
+        Write-Host "║" -ForegroundColor Cyan -NoNewline
+        Write-Host $line -ForegroundColor Gray -NoNewline
+        Write-Host (" " * $pad) -NoNewline
+        Write-Host "║" -ForegroundColor Cyan
+    }
+}
+
+# 新安装成功
+if ($script:Results.Success.Count -gt 0) {
+    Write-Host "║" -ForegroundColor Cyan -NoNewline
+    Write-Host "  🆕 新安装 ($($script:Results.Success.Count)):" -ForegroundColor Green -NoNewline
+    Write-Host (" " * (49 - 17 - "$($script:Results.Success.Count)".Length)) -NoNewline
+    Write-Host "║" -ForegroundColor Cyan
+    foreach ($item in $script:Results.Success) {
+        $detail = if ($item.Detail) { " ($($item.Detail))" } else { "" }
+        $line = "     $($item.Name)$detail"
+        $pad = 49 - $line.Length
+        if ($pad -lt 1) { $pad = 1 }
+        Write-Host "║" -ForegroundColor Cyan -NoNewline
+        Write-Host $line -ForegroundColor White -NoNewline
+        Write-Host (" " * $pad) -NoNewline
+        Write-Host "║" -ForegroundColor Cyan
+    }
+}
+
+# 安装失败
+if ($script:Results.Failed.Count -gt 0) {
+    Write-Host "║" -ForegroundColor Cyan -NoNewline
+    Write-Host "  ❌ 失败 ($($script:Results.Failed.Count)):" -ForegroundColor Red -NoNewline
+    Write-Host (" " * (49 - 14 - "$($script:Results.Failed.Count)".Length)) -NoNewline
+    Write-Host "║" -ForegroundColor Cyan
+    foreach ($item in $script:Results.Failed) {
+        $line = "     $($item.Name)"
+        $pad = 49 - $line.Length
+        if ($pad -lt 1) { $pad = 1 }
+        Write-Host "║" -ForegroundColor Cyan -NoNewline
+        Write-Host $line -ForegroundColor Red -NoNewline
+        Write-Host (" " * $pad) -NoNewline
+        Write-Host "║" -ForegroundColor Cyan
+
+        if ($item.Detail) {
+            $detailLine = "       → $($item.Detail)"
+            if ($detailLine.Length -gt 49) { $detailLine = $detailLine.Substring(0, 46) + "..." }
+            $pad2 = 49 - $detailLine.Length
+            if ($pad2 -lt 1) { $pad2 = 1 }
+            Write-Host "║" -ForegroundColor Cyan -NoNewline
+            Write-Host $detailLine -ForegroundColor DarkGray -NoNewline
+            Write-Host (" " * $pad2) -NoNewline
+            Write-Host "║" -ForegroundColor Cyan
+        }
+    }
+}
+
+Write-Host "╠══════════════════════════════════════════════════╣" -ForegroundColor Cyan
+
+# 总结行
+$total = $script:Results.Success.Count + $script:Results.Failed.Count + $script:Results.Skipped.Count
+if ($script:Results.Failed.Count -eq 0) {
+    $summaryText = "  全部完成！共 $total 项，无失败"
+    $summaryColor = "Green"
+}
+else {
+    $summaryText = "  共 $total 项: $($script:Results.Success.Count) 新装, $($script:Results.Failed.Count) 失败, $($script:Results.Skipped.Count) 已有"
+    $summaryColor = "Yellow"
+}
+$pad3 = 49 - $summaryText.Length
+if ($pad3 -lt 1) { $pad3 = 1 }
+Write-Host "║" -ForegroundColor Cyan -NoNewline
+Write-Host $summaryText -ForegroundColor $summaryColor -NoNewline
+Write-Host (" " * $pad3) -NoNewline
+Write-Host "║" -ForegroundColor Cyan
+
+Write-Host "╚══════════════════════════════════════════════════╝" -ForegroundColor Cyan
+
+# 失败项重试指南
+if ($script:Results.Failed.Count -gt 0) {
+    Write-Host ""
+    Write-Host "💡 修复建议:" -ForegroundColor Yellow
+    foreach ($item in $script:Results.Failed) {
+        $toolName = $item.Name -replace '\s*\(.*\)', ''  # 去掉括号说明
+        Write-Host "   scoop install $toolName" -ForegroundColor White
+    }
+    Write-Host ""
+    Write-Host "   或重新运行: chezmoi apply" -ForegroundColor Gray
+}
+
+# 后续步骤
+Write-Host ""
+Write-Host "📝 后续步骤:" -ForegroundColor Cyan
+Write-Host "  1. 重启 PowerShell / Windows Terminal"
+Write-Host "  2. 在 Windows Terminal 设置中将字体设为 'MesloLGS Nerd Font'"
+Write-Host "  3. 享受你的新终端环境！"
+Write-Host ""
+
+# 如果有失败项，以非零退出码退出（但所有工具都已尝试安装）
+if ($script:Results.Failed.Count -gt 0) {
     exit 1
 }
+exit 0
 {{ end -}}

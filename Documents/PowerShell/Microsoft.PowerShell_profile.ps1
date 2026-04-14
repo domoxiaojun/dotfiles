@@ -69,8 +69,14 @@ if (Get-Command btop -ErrorAction SilentlyContinue) {
 # =========================
 # PATH 扩展
 # =========================
-# 添加自定义 bin 目录到 PATH
-$LocalBinPath = "$env:USERPROFILE\.local\bin"
-if (Test-Path $LocalBinPath) {
-    $env:PATH = "$LocalBinPath;$env:PATH"
+# chezmoi 和工具的 bin 路径
+$ExtraPaths = @(
+    "$env:USERPROFILE\bin",
+    "$env:USERPROFILE\.local\bin",
+    "$env:USERPROFILE\.antigravity\antigravity\bin"
+)
+foreach ($p in $ExtraPaths) {
+    if ((Test-Path $p) -and ($env:PATH -notlike "*$p*")) {
+        $env:PATH = "$p;$env:PATH"
+    }
 }

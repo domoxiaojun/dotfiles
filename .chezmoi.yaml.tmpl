@@ -100,18 +100,18 @@ data:
   # 系统信息 (用于跨平台模板)
   system:
     os: {{ .chezmoi.os | quote }}
-{{ if eq .chezmoi.os "linux" -}}
+{{- if and (eq .chezmoi.os "linux") (hasKey .chezmoi "osRelease") }}
     distro: {{ .chezmoi.osRelease.id | default "unknown" | quote }}
     distro_version: {{ .chezmoi.osRelease.versionID | default "" | quote }}
     is_fedora: {{ if eq (.chezmoi.osRelease.id | default "") "fedora" }}true{{ else }}false{{ end }}
     is_ubuntu: {{ if eq (.chezmoi.osRelease.id | default "") "ubuntu" }}true{{ else }}false{{ end }}
     is_debian: {{ if eq (.chezmoi.osRelease.id | default "") "debian" }}true{{ else }}false{{ end }}
     is_wayland: {{ if env "WAYLAND_DISPLAY" }}true{{ else }}false{{ end }}
-{{ else -}}
+{{- else }}
     distro: ""
     distro_version: ""
     is_fedora: false
     is_ubuntu: false
     is_debian: false
     is_wayland: false
-{{ end -}}
+{{- end }}

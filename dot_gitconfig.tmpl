@@ -6,7 +6,11 @@
 	email = {{ .git.user.email | quote }}
 
 [core]
+{{- if eq .chezmoi.os "windows" }}
+	editor = notepad
+{{- else }}
 	editor = vim
+{{- end }}
 {{- if eq .chezmoi.os "windows" }}
 	autocrlf = true
 {{- else }}

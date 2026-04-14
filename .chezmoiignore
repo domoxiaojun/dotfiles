@@ -34,3 +34,6 @@ Documents/
 # 私密文件（如果不想同步到 GitHub）
 # .ssh/
 # .gnupg/
+
+# 辅助脚本目录（不同步到 home）
+scripts/

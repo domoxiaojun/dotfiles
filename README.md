@@ -100,8 +100,14 @@ sh -c "$(curl -fsLS get.chezmoi.io)" -- init --apply domoxiaojun
 ### Windows 一键安装
 
 ```powershell
-# 安装 chezmoi 并应用所有配置
-(irm -useb https://get.chezmoi.io/ps1) | powershell -c -
+# 安装 Scoop（如果还没有）
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser -Force
+irm get.scoop.sh | iex
+
+# 通过 Scoop 安装 chezmoi
+scoop install chezmoi
+
+# 初始化并应用所有配置
 chezmoi init --apply domoxiaojun
 ```
 
@@ -109,8 +115,9 @@ chezmoi init --apply domoxiaojun
 
 1. 安装 chezmoi
 2. 克隆此仓库
-3. 应用 PowerShell profile 和 Starship 配置
-4. 通过 Scoop 自动安装 lsd、bat、starship 等工具
+3. 通过 Scoop 自动安装所有工具（starship, lsd, bat, delta, btop, glow, fzf, yazi, fd, ripgrep, fx）
+4. 安装 MesloLGS Nerd Font
+5. 配置 PowerShell 7 profile 和 Windows Terminal
 
 ### 手动安装（分步骤）
 
@@ -253,14 +260,15 @@ chezmoi managed
 
 ## 平台差异
 
-| 功能           | macOS              | Fedora              | Ubuntu             |
-| -------------- | ------------------ | ------------------- | ------------------ |
-| 终端           | Ghostty            | Ghostty (COPR)      | Ghostty (脚本)     |
-| Shell          | Zsh                | Bash                | Bash               |
-| 包管理器       | Homebrew           | dnf                 | apt                |
-| 剪贴板         | pbcopy             | wl-copy (Wayland)   | xclip/wl-copy      |
-| bat 命令       | `bat`              | `bat`               | `batcat`           |
-| fd 命令        | `fd`               | `fd`                | `fdfind`           |
+| 功能           | macOS              | Fedora              | Ubuntu             | Windows            |
+| -------------- | ------------------ | ------------------- | ------------------ | ------------------ |
+| 终端           | Ghostty            | Ghostty (COPR)      | Ghostty (脚本)     | Windows Terminal   |
+| Shell          | Zsh                | Bash                | Bash               | PowerShell 7       |
+| 包管理器       | Homebrew           | dnf                 | apt                | Scoop              |
+| 剪贴板         | pbcopy             | wl-copy (Wayland)   | xclip/wl-copy      | 系统内置           |
+| bat 命令       | `bat`              | `bat`               | `batcat`           | `bat`              |
+| fd 命令        | `fd`               | `fd`                | `fdfind`           | `fd`               |
+| Git 编辑器     | vim                | vim                 | vim                | notepad            |
 
 ## 故障排除
 
