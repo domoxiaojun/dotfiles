@@ -79,7 +79,7 @@ function Install-ScoopPackage {
 # ============================================================
 # 1. 检测 / 安装 Scoop（动态路径）
 # ============================================================
-Write-Host "[1/8] 检查 Scoop ..." -ForegroundColor Cyan
+Write-Host "[1/9] 检查 Scoop ..." -ForegroundColor Cyan
 
 # 检测 Scoop 实际安装路径：优先 $env:SCOOP，再查 scoop 配置，最后回退默认
 $ScoopDir = $env:SCOOP
@@ -122,7 +122,7 @@ $env:PATH = "$ScoopDir\shims;$env:PATH"
 # ============================================================
 # 2. 确保 Git 可用（scoop bucket 的前置依赖）
 # ============================================================
-Write-Host "`n[2/8] 检查 Git（Scoop 前置依赖）..." -ForegroundColor Cyan
+Write-Host "`n[2/9] 检查 Git（Scoop 前置依赖）..." -ForegroundColor Cyan
 
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
     Write-Host "  Git 未安装，正在通过 Scoop 安装..." -ForegroundColor Yellow
@@ -166,7 +166,7 @@ if (Get-Command git -ErrorAction SilentlyContinue) {
 # ============================================================
 # 3. 添加 Scoop buckets
 # ============================================================
-Write-Host "`n[3/8] 配置 Scoop buckets ..." -ForegroundColor Cyan
+Write-Host "`n[3/9] 配置 Scoop buckets ..." -ForegroundColor Cyan
 
 $buckets = scoop bucket list 2>$null | Select-Object -ExpandProperty Name -ErrorAction SilentlyContinue
 foreach ($bucket in @('extras', 'nerd-fonts')) {
@@ -190,7 +190,7 @@ foreach ($bucket in @('extras', 'nerd-fonts')) {
 # ============================================================
 # 4. 安装 PowerShell 7 并配置 Windows Terminal
 # ============================================================
-Write-Host "`n[4/8] 检查 PowerShell 7 ..." -ForegroundColor Cyan
+Write-Host "`n[4/9] 检查 PowerShell 7 ..." -ForegroundColor Cyan
 
 if (-not (Get-Command pwsh -ErrorAction SilentlyContinue)) {
     Write-Host "  安装 PowerShell 7 ..." -ForegroundColor Yellow
@@ -243,7 +243,7 @@ else {
 # ============================================================
 # 5. 安装终端工具（容错：单个失败不影响后续）
 # ============================================================
-Write-Host "`n[5/8] 安装终端工具 ..." -ForegroundColor Cyan
+Write-Host "`n[5/9] 安装终端工具 ..." -ForegroundColor Cyan
 
 # 临时降低错误级别，避免 scoop 内部错误中断脚本
 $ErrorActionPreference = 'Continue'
@@ -278,7 +278,7 @@ $ErrorActionPreference = 'Stop'
 # ============================================================
 # 6. 配置 YAZI_FILE_ONE（yazi 文件类型检测）
 # ============================================================
-Write-Host "`n[6/8] 配置 YAZI_FILE_ONE 环境变量 ..." -ForegroundColor Cyan
+Write-Host "`n[6/9] 配置 YAZI_FILE_ONE 环境变量 ..." -ForegroundColor Cyan
 
 $fileExePath = $null
 
@@ -315,9 +315,37 @@ else {
 }
 
 # ============================================================
-# 7. 安装 Nerd Font
+# 7. 同步 PowerShell Profile（处理 Documents 重定向到其他盘）
 # ============================================================
-Write-Host "`n[7/8] 安装 Nerd Font ..." -ForegroundColor Cyan
+Write-Host "`n[7/9] 同步 PowerShell Profile ..." -ForegroundColor Cyan
+
+$chezmoiProfile = Join-Path $env:USERPROFILE "Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
+$actualProfile = & pwsh -NoLogo -NonInteractive -Command 'echo $PROFILE' 2>$null
+if (-not $actualProfile) {
+    $actualProfile = & powershell -NoLogo -NonInteractive -Command 'echo $PROFILE' 2>$null
+}
+
+if ($actualProfile -and $chezmoiProfile -and ($actualProfile -ne $chezmoiProfile) -and (Test-Path $chezmoiProfile)) {
+    Write-Host "  chezmoi 部署位置: $chezmoiProfile" -ForegroundColor Gray
+    Write-Host "  PowerShell 期望:  $actualProfile" -ForegroundColor Gray
+    New-Item -ItemType Directory -Force -Path (Split-Path $actualProfile) | Out-Null
+    Copy-Item $chezmoiProfile $actualProfile -Force
+    Write-Host "  [OK] Profile 已同步到 $actualProfile" -ForegroundColor Green
+    Add-Result -Name 'PowerShell Profile' -Status 'success' -Detail '已同步'
+}
+elseif ($actualProfile -and (Test-Path $actualProfile)) {
+    Write-Host "  [OK] Profile 已存在" -ForegroundColor Green
+    Add-Result -Name 'PowerShell Profile' -Status 'skipped' -Detail '路径一致'
+}
+else {
+    Write-Host "  [WARN] 无法确定 Profile 路径，请手动复制" -ForegroundColor Yellow
+    Add-Result -Name 'PowerShell Profile' -Status 'failed' -Detail '路径检测失败'
+}
+
+# ============================================================
+# 8. 安装 Nerd Font
+# ============================================================
+Write-Host "`n[8/9] 安装 Nerd Font ..." -ForegroundColor Cyan
 
 # 检查字体是否已安装（查注册表 + 用户字体目录 + Scoop 目录）
 $fontInstalled = $false
@@ -361,7 +389,7 @@ else {
 }
 
 # ============================================================
-# 8. 安装报告
+# 9. 安装报告
 # ============================================================
 Write-Host "`n`n" -NoNewline
 Write-Host "╔══════════════════════════════════════════════════╗" -ForegroundColor Cyan
