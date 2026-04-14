@@ -2,10 +2,10 @@
 #!/usr/bin/env pwsh
 # Windows 包安装脚本
 # chezmoi apply 时自动执行
-# version: 2.2.0
+# version: 2.2.1
 #
 # 修改记录:
-#   2.2.0 - 修复 scoop update 错误检测、Git 路径推断、exit code 处理
+#   2.2.1 - 修复 scoop update 失败后仍触发自动更新、Git 路径遍历查找
 #   2.1.0 - 添加安装结果跟踪和汇总报告
 #   2.0.0 - 修复 Scoop 路径硬编码、工具列表补全、容错机制、字体包名
 
@@ -31,7 +31,7 @@ function Add-Result {
 }
 
 Write-Host "`n========================================" -ForegroundColor Cyan
-Write-Host "  Windows 终端工具安装脚本 v2.2.0" -ForegroundColor Cyan
+Write-Host "  Windows 终端工具安装脚本 v2.2.1" -ForegroundColor Cyan
 Write-Host "========================================`n" -ForegroundColor Cyan
 
 # ============================================================
@@ -81,7 +81,21 @@ function Install-ScoopPackage {
 # ============================================================
 Write-Host "[1/8] 检查 Scoop ..." -ForegroundColor Cyan
 
-$ScoopDir = if ($env:SCOOP) { $env:SCOOP } else { "$env:USERPROFILE\scoop" }
+# 检测 Scoop 实际安装路径：优先 $env:SCOOP，再查 scoop 配置，最后回退默认
+$ScoopDir = $env:SCOOP
+if (-not $ScoopDir) {
+    $scoopCmd = Get-Command scoop -ErrorAction SilentlyContinue
+    if ($scoopCmd) {
+        $cfgRoot = & scoop config root_path 2>$null
+        if ($cfgRoot -and (Test-Path $cfgRoot)) {
+            $ScoopDir = $cfgRoot
+        } else {
+            # 从 scoop.ps1 路径推断: <ScoopDir>\apps\scoop\current\bin\scoop.ps1
+            $ScoopDir = Split-Path (Split-Path (Split-Path (Split-Path $scoopCmd.Source)))
+        }
+    }
+}
+if (-not $ScoopDir) { $ScoopDir = "$env:USERPROFILE\scoop" }
 
 if (-not (Get-Command scoop -ErrorAction SilentlyContinue) -and -not (Test-Path $ScoopDir)) {
     Write-Host "  Scoop 未安装，正在安装..." -ForegroundColor Yellow
@@ -129,6 +143,24 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
 else {
     Write-Host "  [OK] Git 已安装" -ForegroundColor Green
     Add-Result -Name 'Git' -Status 'skipped' -Detail '已安装'
+}
+
+# 修复 Git safe.directory 问题（Scoop 目录所有者可能不是当前用户）
+# Git 2.35.2+ 会因 dubious ownership 拒绝操作，导致 scoop update 失败
+if (Get-Command git -ErrorAction SilentlyContinue) {
+    $scoopDirs = @(
+        "$ScoopDir/apps/scoop/current"
+        "$ScoopDir/buckets/main"
+        "$ScoopDir/buckets/extras"
+        "$ScoopDir/buckets/nerd-fonts"
+    )
+    foreach ($d in $scoopDirs) {
+        $dNorm = $d -replace '\\', '/'
+        $existing = git config --global --get-all safe.directory 2>$null
+        if ($existing -notcontains $dNorm) {
+            git config --global --add safe.directory $dNorm 2>$null
+        }
+    }
 }
 
 # ============================================================
@@ -220,7 +252,9 @@ $ErrorActionPreference = 'Continue'
 Write-Host "  更新 Scoop 索引 ..." -ForegroundColor Gray
 scoop update 2>&1 | Out-Null
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "  [WARN] Scoop 更新失败，继续安装 ..." -ForegroundColor Yellow
+    Write-Host "  [WARN] Scoop 更新失败，跳过后续自动更新 ..." -ForegroundColor Yellow
+    # 设置 last_update 为当前时间，防止后续 install 再次触发 Updating Scoop
+    scoop config last_update ([System.DateTime]::Now.ToString('o')) 2>$null
 } else {
     Write-Host "  [OK] Scoop 索引已更新" -ForegroundColor Green
 }
@@ -248,20 +282,20 @@ Write-Host "`n[6/8] 配置 YAZI_FILE_ONE 环境变量 ..." -ForegroundColor Cyan
 
 $fileExePath = $null
 
-# 优先使用 git --exec-path 获取真实安装路径（避免 Scoop shim 路径问题）
+# 使用 git --exec-path 获取路径，然后向上遍历查找 usr\bin\file.exe
+# git --exec-path 返回类似 C:/Program Files/Git/mingw64/libexec/git-core
+# file.exe 在 Git 根目录的 usr\bin\ 下
 $gitExecPath = & git --exec-path 2>$null
 if ($gitExecPath) {
-    $gitRoot = Split-Path (Split-Path $gitExecPath)
-    $candidate = Join-Path $gitRoot "usr\bin\file.exe"
-    if (Test-Path $candidate) { $fileExePath = $candidate }
-}
-
-# 回退: 尝试 scoop prefix git
-if (-not $fileExePath -and (Get-Command scoop -ErrorAction SilentlyContinue)) {
-    $scoopGitPrefix = & scoop prefix git 2>$null
-    if ($scoopGitPrefix) {
-        $candidate = Join-Path $scoopGitPrefix "usr\bin\file.exe"
-        if (Test-Path $candidate) { $fileExePath = $candidate }
+    $dir = $gitExecPath
+    for ($i = 0; $i -lt 5; $i++) {
+        $dir = Split-Path $dir
+        if (-not $dir) { break }
+        $candidate = Join-Path $dir "usr\bin\file.exe"
+        if (Test-Path $candidate) {
+            $fileExePath = $candidate
+            break
+        }
     }
 }
 
@@ -423,8 +457,9 @@ if ($script:Results.Failed.Count -gt 0) {
     Write-Host ""
     Write-Host "💡 修复建议:" -ForegroundColor Yellow
     foreach ($item in $script:Results.Failed) {
-        $scoopPkg = if ($item.ScoopName) { $item.ScoopName } else { $item.Name -replace '\s*\(.*\)', '' }
-        Write-Host "   scoop install $scoopPkg" -ForegroundColor White
+        if ($item.ScoopName) {
+            Write-Host "   scoop install $($item.ScoopName)" -ForegroundColor White
+        }
     }
     Write-Host ""
     Write-Host "   或重新运行: chezmoi apply" -ForegroundColor Gray
