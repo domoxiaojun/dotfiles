@@ -3,11 +3,21 @@
 # 根据不同平台选择性应用配置
 # ============================================================
 
+# 项目元数据/文档（仅在仓库内有意义，不部署到 home 目录）
+README.md
+LICENSE
+CHANGELOG.md
+.editorconfig
+.gitattributes
+.github/
+
 # Windows 上忽略 Unix 专属配置
 {{ if eq .chezmoi.os "windows" }}
 .tmux.conf
 .zshrc
 .bash_aliases
+.zprofile
+.vimrc
 .config/ghostty/
 {{ end }}
 
@@ -20,6 +30,7 @@ Documents/
 # 注意: 如果你想在 Linux 上也用 zsh，注释掉下面这行
 {{ if eq .chezmoi.os "linux" }}
 .zshrc
+.zprofile
 {{ end }}
 
 # 备份文件
