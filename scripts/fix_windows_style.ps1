@@ -65,7 +65,8 @@ if ($WT_Settings) {
                 $Json.profiles.defaults.font | Add-Member -NotePropertyName "face" -NotePropertyValue "MesloLGS NF" -Force
             }
             $NewJson = $Json | ConvertTo-Json -Depth 10
-            Set-Content $WT_Settings.FullName -Value $NewJson
+            # 用 .NET API 写 UTF-8 无 BOM，避免 Windows Terminal 解析异常
+            [System.IO.File]::WriteAllText($WT_Settings.FullName, $NewJson, [System.Text.UTF8Encoding]::new($false))
             Write-Host "[FIXED] Default font set to MesloLGS NF" -ForegroundColor Green
         }
     }

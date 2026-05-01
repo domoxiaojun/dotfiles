@@ -12,16 +12,34 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 
 
 # =========================
-# PSReadLine (自动补全和语法高亮)
+# PSReadLine (自动补全和语法高亮，需要 2.3+ 才支持 ListView 预测)
 # =========================
 if (Get-Module -ListAvailable -Name PSReadLine) {
-    Set-PSReadLineOption -PredictionSource History
-    Set-PSReadLineOption -PredictionViewStyle ListView
-    Set-PSReadLineOption -EditMode Windows
-    Set-PSReadLineOption -HistorySearchCursorMovesToEnd
-    Set-PSReadLineKeyHandler -Key UpArrow -Function HistorySearchBackward
-    Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward
-    Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
+    try {
+        Set-PSReadLineOption -PredictionSource History
+        Set-PSReadLineOption -PredictionViewStyle ListView
+        Set-PSReadLineOption -EditMode Windows
+        Set-PSReadLineOption -HistorySearchCursorMovesToEnd
+        Set-PSReadLineOption -MaximumHistoryCount 4096
+        Set-PSReadLineKeyHandler -Key UpArrow -Function HistorySearchBackward
+        Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward
+        Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
+    } catch {
+        # PSReadLine 版本过旧不支持某些选项，忽略错误
+    }
+}
+
+
+# =========================
+# PSFzf - fzf 集成（Ctrl+R 历史搜索 / Ctrl+T 文件搜索）
+# =========================
+if (Get-Module -ListAvailable PSFzf) {
+    try {
+        Import-Module PSFzf
+        Set-PsFzfOption -PSReadlineChordProvider 'Ctrl+t' -PSReadlineChordReverseHistory 'Ctrl+r'
+    } catch {
+        # PSFzf 加载失败不影响其他功能
+    }
 }
 
 
@@ -29,7 +47,36 @@ if (Get-Module -ListAvailable -Name PSReadLine) {
 # Starship Prompt
 # =========================
 if (Get-Command starship -ErrorAction SilentlyContinue) {
-    Invoke-Expression (&starship init powershell)
+    try {
+        Invoke-Expression (&starship init powershell)
+    } catch { }
+}
+
+
+# =========================
+# zoxide（智能 cd，'z foo' 跳到含 foo 的常用目录）
+# =========================
+if (Get-Command zoxide -ErrorAction SilentlyContinue) {
+    try {
+        Invoke-Expression (& { (zoxide init powershell | Out-String) })
+    } catch { }
+}
+
+
+# =========================
+# EDITOR 智能选择（code -w > nvim > vim > notepad）
+# =========================
+if (-not $env:EDITOR) {
+    if (Get-Command code -ErrorAction SilentlyContinue) {
+        $env:EDITOR = 'code --wait'
+    } elseif (Get-Command nvim -ErrorAction SilentlyContinue) {
+        $env:EDITOR = 'nvim'
+    } elseif (Get-Command vim -ErrorAction SilentlyContinue) {
+        $env:EDITOR = 'vim'
+    } else {
+        $env:EDITOR = 'notepad'
+    }
+    $env:VISUAL = $env:EDITOR
 }
 
 
@@ -49,10 +96,9 @@ if (Get-Command lsd -ErrorAction SilentlyContinue) {
 # bat - 彩色 cat（语法高亮）
 if (Get-Command bat -ErrorAction SilentlyContinue) {
     Remove-Alias -Name cat -ErrorAction SilentlyContinue
-    # --paging=never: 不使用分页器，直接输出（像 cat 一样）
     function cat { bat --style=plain --paging=never @args }
-    function catt { bat --paging=never @args }  # 带行号和 git 状态，无分页
-    function batp { bat @args }  # 需要分页时用这个
+    function catt { bat --paging=never @args }
+    function batp { bat @args }
 }
 
 # glow - Markdown 渲染
@@ -67,16 +113,14 @@ if (Get-Command btop -ErrorAction SilentlyContinue) {
 
 
 # =========================
-# PATH 扩展
+# PATH 扩展（一次性追加，用户级 PATH 通过安装脚本永久注入）
+# 这里只兜底处理：当前会话已有 USER PATH 未生效时的情况
 # =========================
-# chezmoi 和工具的 bin 路径
 $ExtraPaths = @(
     "$env:USERPROFILE\bin",
-    "$env:USERPROFILE\.local\bin",
-    "$env:USERPROFILE\.antigravity\antigravity\bin"
+    "$env:USERPROFILE\.local\bin"
 )
-foreach ($p in $ExtraPaths) {
-    if ((Test-Path $p) -and ($env:PATH -notlike "*$p*")) {
-        $env:PATH = "$p;$env:PATH"
-    }
+$pathsToAdd = $ExtraPaths | Where-Object { (Test-Path $_) -and ($env:PATH -notlike "*$_*") }
+if ($pathsToAdd) {
+    $env:PATH = "$($pathsToAdd -join ';');$env:PATH"
 }

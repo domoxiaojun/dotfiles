@@ -1,3 +1,0 @@
-# chezmoi 数据配置
-# 注意: name 和 email 将从 git config 读取，无需在此配置
-# 如果 git config 未配置，将使用默认值

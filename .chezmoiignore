@@ -31,9 +31,9 @@ Documents/
 *.swo
 *~
 
-# 私密文件（如果不想同步到 GitHub）
-# .ssh/
-# .gnupg/
+# 私密文件不同步到 GitHub（如需同步部分 SSH 配置，建议用 chezmoi encrypt 加密）
+.ssh/
+.gnupg/
 
 # 辅助脚本目录（不同步到 home）
 scripts/

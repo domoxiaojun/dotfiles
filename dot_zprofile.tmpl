@@ -1,0 +1,15 @@
+{{/*
+登录 shell 加载（macOS 必须，Linux/WSL 可选）
+~/.zshenv 之后、~/.zshrc 之前执行
+*/}}
+
+{{ if eq .chezmoi.os "darwin" -}}
+# =========================
+# Homebrew 环境（必须在登录 shell 中加载，让 GUI 应用启动的子 shell 也能找到 brew）
+# =========================
+if [ -x /opt/homebrew/bin/brew ]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [ -x /usr/local/bin/brew ]; then
+    eval "$(/usr/local/bin/brew shellenv)"
+fi
+{{ end -}}

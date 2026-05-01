@@ -1,8 +1,8 @@
 # =========================
-# Locale
+# Locale（仅当系统未设置时兜底，尊重用户/系统的 locale）
 # =========================
-export LANG=en_US.UTF-8
-export LC_ALL=en_US.UTF-8
+export LANG="${LANG:-en_US.UTF-8}"
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
 
 # 支持 tmux 使用 Ctrl+s 作为 prefix。
 # 仅在交互式终端中关闭软件流控，跳过 Linux 纯控制台 tty (TERM=linux)。
@@ -12,72 +12,87 @@ fi
 
 
 # =========================
+# 历史记录（多 session 共享、去重、跨重启保留）
+# =========================
+HISTFILE="${ZDOTDIR:-$HOME}/.zsh_history"
+HISTSIZE=10000
+SAVEHIST=10000
+setopt SHARE_HISTORY          # 多 session 实时共享历史
+setopt HIST_IGNORE_DUPS       # 连续重复的命令只记一次
+setopt HIST_IGNORE_ALL_DUPS   # 历史中的旧重复行删除
+setopt HIST_REDUCE_BLANKS     # 多余空格压缩
+setopt HIST_VERIFY            # !! 历史展开后先确认再执行
+setopt EXTENDED_HISTORY       # 记录时间戳
+
+
+# =========================
+# zsh-autosuggestions config（必须在 plugin source 之前设置才生效）
+# =========================
+ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=8'
+
+
+# =========================
 # Completion paths（必须在 compinit 之前）
 # =========================
 
 {{ if eq .chezmoi.os "darwin" -}}
+# 缓存 brew --prefix 避免在配置加载期间多次派生子进程
+if type brew &>/dev/null; then
+  export BREW_PREFIX=$(brew --prefix)
+fi
+
 # Docker CLI completion (macOS)
 fpath=($HOME/.docker/completions $fpath)
 
 # Homebrew zsh-completions
-if type brew &>/dev/null; then
-  fpath=($(brew --prefix)/share/zsh-completions $fpath)
+if [ -n "$BREW_PREFIX" ]; then
+  fpath=(${BREW_PREFIX}/share/zsh-completions $fpath)
 fi
 {{ end -}}
 
 
 # =========================
-# Completion init（只调用一次）
+# Completion init（每天首次完整检查，其余用快速模式）
 # =========================
 autoload -Uz compinit
-compinit
+# 缓存文件 24 小时内有效，跳过 compaudit 检查（启动加速 ~50%）
+if [[ -n ${ZDOTDIR:-$HOME}/.zcompdump(#qN.mh+24) ]]; then
+  compinit
+else
+  compinit -C
+fi
 
 
 # =========================
 # zsh plugins
 # =========================
 {{ if eq .chezmoi.os "darwin" -}}
-# macOS: Homebrew 路径（支持 Intel 和 Apple Silicon）
-if type brew &>/dev/null; then
-  BREW_PREFIX=$(brew --prefix)
+# macOS: Homebrew 路径（支持 Intel 和 Apple Silicon），复用顶部缓存的 BREW_PREFIX
+if [ -n "$BREW_PREFIX" ]; then
   [ -f ${BREW_PREFIX}/share/zsh-autosuggestions/zsh-autosuggestions.zsh ] && \
-    source ${BREW_PREFIX}/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+    { source ${BREW_PREFIX}/share/zsh-autosuggestions/zsh-autosuggestions.zsh 2>/dev/null || true; }
   # fast-syntax-highlighting 和 syntax-highlighting 互斥，优先 fast 版本
   if [ -f ${BREW_PREFIX}/opt/zsh-fast-syntax-highlighting/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh ]; then
-    source ${BREW_PREFIX}/opt/zsh-fast-syntax-highlighting/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh
+    source ${BREW_PREFIX}/opt/zsh-fast-syntax-highlighting/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh 2>/dev/null || true
   elif [ -f ${BREW_PREFIX}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then
-    source ${BREW_PREFIX}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+    source ${BREW_PREFIX}/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh 2>/dev/null || true
   fi
 fi
 {{ else -}}
 # Linux: 常见安装路径
 [ -f /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ] && \
-  source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+  { source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh 2>/dev/null || true; }
 [ -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ] && \
-  source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+  { source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh 2>/dev/null || true; }
 {{ end -}}
 
 
 # =========================
-# Prompt
+# 工具初始化（starship / zoxide / fzf 缓存版 + EDITOR + Python alias + PATH）
 # =========================
-if command -v starship &> /dev/null; then
-  eval "$(starship init zsh)"
-fi
+{{ template "shell-tools-init" . }}
 
-
-# =========================
-# Convenience aliases
-# =========================
-if command -v python3 &> /dev/null; then
-  alias python=python3
-fi
-if command -v pip3 &> /dev/null; then
-  alias pip=pip3
-fi
-{{ if eq .chezmoi.os "darwin" -}}
-alias bash5='$(brew --prefix)/bin/bash'
-{{ end -}}
 
 # =========================
 # 终端美化工具别名（共享配置）
@@ -85,24 +100,14 @@ alias bash5='$(brew --prefix)/bin/bash'
 {{ template "shell-aliases" . }}
 
 
+# =========================
+# macOS 专属
+# =========================
 {{ if eq .chezmoi.os "darwin" -}}
-# =========================
-# Python / pipx (macOS)
-# =========================
-if type brew &>/dev/null; then
-  export PIPX_DEFAULT_PYTHON=$(brew --prefix)/bin/python3
+[ -n "$BREW_PREFIX" ] && alias bash5="${BREW_PREFIX}/bin/bash"
+
+# Python / pipx
+if [ -n "$BREW_PREFIX" ]; then
+  export PIPX_DEFAULT_PYTHON=${BREW_PREFIX}/bin/python3
 fi
 {{ end -}}
-
-
-# =========================
-# PATH additions
-# =========================
-export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
-
-
-# =========================
-# zsh-autosuggestions config
-# =========================
-ZSH_AUTOSUGGEST_STRATEGY=(history completion)
-ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=8'

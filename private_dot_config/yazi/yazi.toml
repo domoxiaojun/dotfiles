@@ -1,7 +1,7 @@
 # Yazi 主配置
 # 参考: https://yazi-rs.github.io/docs/configuration/yazi
 
-[manager]
+[mgr]
 # 显示隐藏文件
 show_hidden = false
 # 排序方式
@@ -16,8 +16,8 @@ show_symlink = true
 
 [preview]
 # 最大预览宽度/高度
-max_width = 1000
-max_height = 1000
+max_width = 600
+max_height = 900
 # 图片预览缓存目录 (留空使用默认)
 cache_dir = ""
 
@@ -66,16 +66,19 @@ rules = [
 ]
 
 [tasks]
-# 并发任务数
-micro_workers = 10
-macro_workers = 25
+# 并发任务数（按任务类别细分）
+file_workers    = 3
+plugin_workers  = 5
+fetch_workers   = 5
+preload_workers = 2
+process_workers = 5
 # 显示进度
-bizarre_retry = 5
+bizarre_retry   = 5
 
 [plugin]
 # 预览器配置
 previewers = [
-  { name = "*/", run = "folder", sync = true },
+  { url = "*/", run = "folder" },
   { mime = "text/*", run = "code" },
   { mime = "*/xml", run = "code" },
   { mime = "*/javascript", run = "code" },
@@ -91,19 +94,19 @@ previewers = [
   { mime = "application/x-xz", run = "archive" },
   { mime = "application/x-7z-compressed", run = "archive" },
   { mime = "application/x-rar", run = "archive" },
-  { name = "*", run = "file" },
+  { url = "*", run = "file" },
 ]
 
 [input]
 # 输入框配置
 cd_title = "切换目录:"
-create_title = "创建:"
+create_title = ["创建:", "创建目录:"]
 rename_title = "重命名:"
 filter_title = "过滤:"
 find_title = ["查找下一个:", "查找上一个:"]
 search_title = "搜索 (via fd):"
 shell_title = ["Shell:", "Shell (阻塞):"]
 
-[select]
+[pick]
 # 选择框配置
 open_title = "打开方式:"

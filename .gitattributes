@@ -1,0 +1,48 @@
+# Git 属性配置：跨平台换行符与文件类型
+# https://git-scm.com/docs/gitattributes
+
+# 默认：根据文件内容自动判断；签出时统一为 LF
+* text=auto eol=lf
+
+# Windows 专属脚本必须 CRLF（PowerShell 部分严格要求）
+*.ps1   text eol=crlf
+*.psm1  text eol=crlf
+*.psd1  text eol=crlf
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# Unix 脚本明确 LF
+*.sh    text eol=lf
+*.bash  text eol=lf
+*.zsh   text eol=lf
+
+# chezmoi 模板
+*.tmpl  text eol=lf
+
+# 配置文件
+*.toml  text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.json  text eol=lf
+
+# Markdown / 文档
+*.md    text eol=lf
+
+# 二进制文件（避免误改）
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.ttf   binary
+*.otf   binary
+*.woff  binary
+*.woff2 binary
+*.zip   binary
+*.tar   binary
+*.gz    binary
+*.xz    binary
+*.7z    binary
+
+# linguist 语言检测优化（GitHub 显示语言占比时）
+*.tmpl linguist-language=Go

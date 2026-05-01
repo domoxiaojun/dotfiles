@@ -7,9 +7,22 @@
 
 [core]
 {{- if eq .chezmoi.os "windows" }}
-	editor = notepad
-{{- else }}
+	{{- /* Windows editor 智能选择：code -w > nvim > vim > notepad */ -}}
+	{{- if lookPath "code" }}
+	editor = code --wait
+	{{- else if lookPath "nvim" }}
+	editor = nvim
+	{{- else if lookPath "vim" }}
 	editor = vim
+	{{- else }}
+	editor = notepad
+	{{- end }}
+{{- else }}
+	{{- if lookPath "nvim" }}
+	editor = nvim
+	{{- else }}
+	editor = vim
+	{{- end }}
 {{- end }}
 {{- if eq .chezmoi.os "windows" }}
 	autocrlf = true
@@ -33,13 +46,55 @@
 {{- end }}
 
 [merge]
-	conflictstyle = diff3
+	conflictstyle = zdiff3
 
 [diff]
 	colorMoved = default
+	algorithm = histogram
+
+[blame]
+	coloring = highlightRecent
 
 [init]
 	defaultBranch = main
 
 [pull]
 	rebase = false
+
+[commit]
+	verbose = true
+
+[help]
+	autocorrect = prompt
+
+[branch]
+	sort = -committerdate
+
+[rerere]
+	enabled = true
+
+[rebase]
+	autosquash = true
+	autoStash = true
+
+[fetch]
+	prune = true
+
+[push]
+	autoSetupRemote = true
+
+# =========================
+# 常用 Git aliases
+# =========================
+[alias]
+	co = checkout
+	br = branch
+	st = status
+	ci = commit
+	unstage = reset HEAD --
+	last = log -1 HEAD
+	lg = log --oneline --graph --decorate --all
+	uncommit = reset --soft HEAD~1
+	amend = commit --amend --no-edit
+	# 显示已修改但未暂存的文件
+	wip = !git add -A && git commit -m "WIP"

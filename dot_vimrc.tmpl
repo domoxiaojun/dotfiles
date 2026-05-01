@@ -1,0 +1,68 @@
+" =========================
+" Vim 最小可用配置（跨平台）
+" Domo's dotfiles
+" =========================
+
+" --- 基础显示 ---
+syntax on
+set number
+set relativenumber
+set cursorline
+set ruler
+set showcmd
+set laststatus=2
+
+" --- 缩进 ---
+set expandtab
+set tabstop=4
+set shiftwidth=4
+set softtabstop=4
+set autoindent
+set smartindent
+
+" --- 搜索 ---
+set incsearch
+set hlsearch
+set ignorecase
+set smartcase
+
+" --- 编辑体验 ---
+set mouse=a
+set encoding=utf-8
+set fileencodings=utf-8,gbk,gb18030,big5,latin1
+set backspace=indent,eol,start
+set scrolloff=5
+set sidescrolloff=5
+set wildmenu
+set wildmode=longest:full,full
+
+" --- 系统剪贴板互通（需要带 +clipboard 编译选项） ---
+{{ if eq .chezmoi.os "darwin" -}}
+set clipboard=unnamed
+{{ else if eq .chezmoi.os "linux" -}}
+set clipboard=unnamedplus
+{{ end -}}
+
+" --- 不创建烦人的备份/交换文件 ---
+set nobackup
+set nowritebackup
+set noswapfile
+
+" --- 持久撤销（关闭文件后仍能撤销） ---
+if has("persistent_undo")
+  set undofile
+  if !isdirectory($HOME . "/.vim/undodir")
+    call mkdir($HOME . "/.vim/undodir", "p", 0700)
+  endif
+  set undodir=~/.vim/undodir
+endif
+
+" --- 快捷键 ---
+" Leader 改为空格
+let mapleader = " "
+" 快速保存
+nnoremap <leader>w :w<CR>
+" 快速退出
+nnoremap <leader>q :q<CR>
+" 清除搜索高亮
+nnoremap <leader><space> :nohlsearch<CR>

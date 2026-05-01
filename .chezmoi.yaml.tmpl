@@ -1,50 +1,41 @@
-{{- /* 初始化时跳过已有数据 */ -}}
-{{- $existingName := "" -}}
-{{- $existingEmail := "" -}}
-{{- if hasKey . "name" -}}
-{{-   $existingName = .name -}}
-{{- end -}}
-{{- if hasKey . "email" -}}
-{{-   $existingEmail = .email -}}
-{{- end -}}
+{{- /* ======================================================
+   Git 用户信息：
+   - 若本机 git config 有有效值（非占位符），弹菜单让用户选「使用当前 / 手动输入」
+   - 否则直接逐项询问
+   - 所有 prompt 都用 *Once 版，答案缓存到 chezmoi state，下次 init 不再问
+   - 要重新选择：chezmoi state delete-bucket --bucket=entryState
+   ====================================================== */ -}}
 
-{{- /* 获取现有 git 配置 */ -}}
+{{- /* 第一步：探测本机 git config */ -}}
 {{- $gitName := "" -}}
 {{- $gitEmail := "" -}}
 {{- if lookPath "git" -}}
-{{-   $gitEmail = output "git" "config" "--default" "" "user.email" | trim -}}
-{{-   $gitName = output "git" "config" "--default" "" "user.name" | trim -}}
+{{-   $n := output "git" "config" "--default" "" "user.name"  | trim -}}
+{{-   $e := output "git" "config" "--default" "" "user.email" | trim -}}
+{{-   if and $n (ne $n "Your Name") }}{{ $gitName = $n }}{{ end -}}
+{{-   if and $e (ne $e "your-email@example.com") }}{{ $gitEmail = $e }}{{ end -}}
 {{- end -}}
 
-{{- /* 如果已有配置则跳过交互 */ -}}
-{{- $name := $existingName -}}
-{{- $email := $existingEmail -}}
+{{- /* 第二步：根据探测结果决定走「菜单」还是「直接询问」 */ -}}
+{{- $name  := "" -}}
+{{- $email := "" -}}
 
-{{- if not (and $existingName $existingEmail) -}}
-{{- /* 交互式选择 git 用户配置来源 */ -}}
-{{-   $gitConfigChoice := "" -}}
-{{-   if stdinIsATTY -}}
-{{-     $choices := list "default (使用默认值)" -}}
-{{-     if and $gitName $gitEmail -}}
-{{-       $choices = append $choices (printf "git (从 git config 读取: %s <%s>)" $gitName $gitEmail) -}}
-{{-     end -}}
-{{-     $choices = append $choices "custom (手动输入)" -}}
-{{-     $gitConfigChoice = promptChoice "Git 用户配置来源" $choices -}}
-{{-   else -}}
-{{-     $gitConfigChoice = "default (使用默认值)" -}}
-{{-   end -}}
-
-{{- /* 根据选择设置 name 和 email */ -}}
-{{-   if hasPrefix "git" $gitConfigChoice -}}
-{{-     $name = $gitName -}}
+{{- if and $gitName $gitEmail -}}
+{{/* 有有效 git config：弹二选一菜单 */}}
+{{-   $msg := printf "检测到当前 git 配置: %s <%s>。选择来源 (git=使用当前 / custom=手动输入)" $gitName $gitEmail -}}
+{{-   $choice := promptChoiceOnce . "git_source" $msg (list "git" "custom") "git" -}}
+{{-   if eq $choice "git" -}}
+{{-     $name  = $gitName -}}
 {{-     $email = $gitEmail -}}
-{{-   else if hasPrefix "custom" $gitConfigChoice -}}
-{{-     $name = promptString "请输入用户名" -}}
-{{-     $email = promptString "请输入邮箱" -}}
 {{-   else -}}
-{{-     $name = default (env "USER") (env "USERNAME") | default "Your Name" -}}
-{{-     $email = "your-email@example.com" -}}
+{{-     $name  = promptStringOnce . "name"  "Git 用户名" $gitName -}}
+{{-     $email = promptStringOnce . "email" "Git 邮箱"   $gitEmail -}}
 {{-   end -}}
+{{- else -}}
+{{/* 没有 git config 或值是占位符：直接逐项询问 */}}
+{{-   $defaultName := default (env "USER") (env "USERNAME") | default "Your Name" -}}
+{{-   $name  = promptStringOnce . "name"  "Git 用户名" $defaultName -}}
+{{-   $email = promptStringOnce . "email" "Git 邮箱"   "your-email@example.com" -}}
 {{- end -}}
 
 sourceDir: {{ .chezmoi.sourceDir | quote }}
@@ -74,18 +65,17 @@ data:
     starship:
       enabled: {{ if lookPath "starship" }}true{{ else }}false{{ end }}
 
-  # 工具配置
+  # 工具配置（遍历 .chezmoidata/tools.yaml 自动检测，添加新工具时改 yaml 即可）
+  # 注意：.chezmoi.yaml.tmpl 在 init 阶段渲染，此时 .chezmoidata 尚未加载，
+  # 所以这里用 include + fromYaml 直接读取（chezmoi 文档推荐做法）。
   tools:
-    lsd: {{ if lookPath "lsd" }}true{{ else }}false{{ end }}
-    bat: {{ if lookPath "bat" }}true{{ else }}false{{ end }}
-    delta: {{ if lookPath "delta" }}true{{ else }}false{{ end }}
-    btop: {{ if lookPath "btop" }}true{{ else }}false{{ end }}
-    glow: {{ if lookPath "glow" }}true{{ else }}false{{ end }}
-    fx: {{ if lookPath "fx" }}true{{ else }}false{{ end }}
-    fzf: {{ if lookPath "fzf" }}true{{ else }}false{{ end }}
-    yazi: {{ if lookPath "yazi" }}true{{ else }}false{{ end }}
-    fd: {{ if or (lookPath "fd") (lookPath "fdfind") }}true{{ else }}false{{ end }}
-    rg: {{ if lookPath "rg" }}true{{ else }}false{{ end }}
+{{- $tools := include ".chezmoidata/tools.yaml" | fromYaml }}
+{{- range $tools.toolList }}
+{{-   if .cmd }}
+{{-     $altCmd := index . "apt_cmd" | default "" }}
+    {{ .cmd }}: {{ if or (lookPath .cmd) (and (ne $altCmd "") (lookPath $altCmd)) }}true{{ else }}false{{ end }}
+{{-   end }}
+{{- end }}
 
   # 系统信息 (用于跨平台模板)
   system:

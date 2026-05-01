@@ -9,3 +9,6 @@
 # 临时文件
 *.tmp
 *.bak
+
+# Claude Code 本地数据
+.claude/

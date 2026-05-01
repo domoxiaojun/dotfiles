@@ -2,13 +2,18 @@
 #!/bin/bash
 # 此脚本在 chezmoi apply 时自动运行
 # 用于安装必要的工具和依赖
-# version: 2.1.0
+# version: 3.0.0  - 工具清单数据化 + zoxide + SHA 校验提示
 
 set -e
 
 echo "🚀 开始安装依赖工具..."
 
-# 检查 Homebrew
+# ============================================================
+# 安装 Homebrew
+# ============================================================
+# 安全提示：Homebrew 官方安装脚本，未做 SHA 校验
+# 如需严格校验，设置环境变量 DOTFILES_VERIFY=1 后人工验证 install.sh 摘要：
+#   curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | shasum -a 256
 if ! command -v brew &> /dev/null; then
     echo "📦 安装 Homebrew..."
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
@@ -25,41 +30,70 @@ else
     echo "✅ Git 已安装"
 fi
 
-# 安装核心工具（逐个检测，已安装则跳过）
+# ============================================================
+# 从工具清单读取（chezmoi 模板渲染时注入）
+# ============================================================
+# 每行一个: <name> <brew_formula>，brew 为 "-" 时跳过
+read -r -d '' BREW_TOOLS <<'EOF' || true
+{{- range .toolList -}}
+{{-   if .brew }}
+{{ .name }} {{ .brew }}
+{{-   end }}
+{{- end }}
+EOF
+
+# ============================================================
+# 一次性获取已安装 formula 列表，避免每个工具重复 grep
+# ============================================================
+echo ""
+echo "📦 检查已安装的 brew 包..."
+INSTALLED_FORMULAS=$(brew list --formula -1 2>/dev/null | sort -u)
+
+# ============================================================
+# 批量安装核心工具
+# ============================================================
 echo ""
 echo "📦 安装终端和 Shell 工具..."
 
-# 注意: zsh-fast-syntax-highlighting 和 zsh-syntax-highlighting 互斥，仅安装后者
-BREW_PACKAGES=(ghostty starship zsh-syntax-highlighting zsh-autosuggestions
-    lsd bat git-delta btop glow fx fzf yazi fd ripgrep tmux)
-
-INSTALLED=$(brew list --formula 2>/dev/null)
-for pkg in "${BREW_PACKAGES[@]}"; do
-    if ! echo "$INSTALLED" | grep -q "^${pkg}$"; then
-        echo "   安装 $pkg ..."
-        brew install "$pkg" || true
+while IFS=' ' read -r tool_name formula; do
+    [ -z "$formula" ] && continue
+    if printf '%s\n' "$INSTALLED_FORMULAS" | grep -qxF "$formula"; then
+        echo "   ✅ $formula 已安装"
     else
-        echo "   ✅ $pkg 已安装"
+        echo "   安装 $formula ..."
+        brew install "$formula" || echo "   ⚠️  $formula 安装失败"
     fi
-done
+done <<< "$BREW_TOOLS"
 
-# Ghostty 是 cask，单独检测
-if ! brew list --cask ghostty &> /dev/null; then
-    echo "   安装 ghostty (cask) ..."
-    brew install --cask ghostty || true
-fi
+# ============================================================
+# Cask 安装：ghostty + Nerd Font
+# ============================================================
+INSTALLED_CASKS=$(brew list --cask -1 2>/dev/null | sort -u)
 
+install_cask() {
+    local cask="$1"
+    if printf '%s\n' "$INSTALLED_CASKS" | grep -qxF "$cask"; then
+        echo "   ✅ $cask (cask) 已安装"
+    else
+        echo "   安装 $cask (cask) ..."
+        brew install --cask "$cask" || echo "   ⚠️  $cask 安装失败"
+    fi
+}
+
+echo ""
+echo "📦 安装 GUI 应用 / 字体..."
+install_cask ghostty
+install_cask font-meslo-lg-nerd-font
+
+# ============================================================
 # 安装 TPM（Tmux 插件管理器）
+# ============================================================
 if [ ! -d ~/.tmux/plugins/tpm ]; then
     echo "📦 安装 TPM (Tmux Plugin Manager)..."
     git clone --depth 1 https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 else
     echo "✅ TPM 已安装"
 fi
-
-# 安装 Nerd Font
-echo "🔤 安装 Nerd Font..."
-brew install --cask font-meslo-lg-nerd-font || true
 
 echo ""
 echo "✅ 所有依赖安装完成！"

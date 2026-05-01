@@ -1,0 +1,130 @@
+# =====================================================
+# 工具清单 - 跨平台共享数据源
+# =====================================================
+# 字段说明：
+#   cmd:        命令名（用于 lookPath / command -v 检测）
+#   brew:       Homebrew formula 名；空字符串表示 brew 无此包
+#   apt:        Ubuntu/Debian 包名；空字符串表示 apt 无此包，需特殊安装
+#   apt_cmd:    Ubuntu/Debian 命令名（仅当与 cmd 不同时，如 fdfind/batcat）
+#   dnf:        Fedora 包名
+#   scoop:      Scoop 包名（Windows）
+#   bucket:     Scoop bucket（默认 main，可填 extras 等）
+#   special:    特殊安装说明（仅文档用途，不影响逻辑）
+# =====================================================
+
+toolList:
+  - name: starship
+    cmd: starship
+    brew: starship
+    apt: ""
+    dnf: ""
+    scoop: starship
+    special: "apt/dnf 通过 starship.rs/install.sh"
+  - name: lsd
+    cmd: lsd
+    brew: lsd
+    apt: ""
+    dnf: lsd
+    scoop: lsd
+    special: "Ubuntu 通过 GitHub deb release"
+  - name: bat
+    cmd: bat
+    brew: bat
+    apt: bat
+    apt_cmd: batcat
+    dnf: bat
+    scoop: bat
+  - name: delta
+    cmd: delta
+    brew: git-delta
+    apt: ""
+    dnf: git-delta
+    scoop: delta
+    special: "Ubuntu 通过 GitHub deb release"
+  - name: btop
+    cmd: btop
+    brew: btop
+    apt: btop
+    dnf: btop
+    scoop: btop
+  - name: glow
+    cmd: glow
+    brew: glow
+    apt: ""
+    dnf: glow
+    scoop: glow
+    special: "Ubuntu 通过 charm.sh apt 源"
+  - name: fzf
+    cmd: fzf
+    brew: fzf
+    apt: fzf
+    dnf: fzf
+    scoop: fzf
+  - name: yazi
+    cmd: yazi
+    brew: yazi
+    apt: ""
+    dnf: ""
+    scoop: yazi
+    special: "Linux 通过 GitHub release zip"
+  - name: fd
+    cmd: fd
+    brew: fd
+    apt: fd-find
+    apt_cmd: fdfind
+    dnf: fd-find
+    scoop: fd
+  - name: ripgrep
+    cmd: rg
+    brew: ripgrep
+    apt: ripgrep
+    dnf: ripgrep
+    scoop: ripgrep
+  - name: fx
+    cmd: fx
+    brew: fx
+    apt: ""
+    dnf: ""
+    scoop: fx
+    special: "Linux 通过 GitHub release tar.gz"
+  - name: zoxide
+    cmd: zoxide
+    brew: zoxide
+    apt: zoxide
+    dnf: zoxide
+    scoop: zoxide
+  - name: tmux
+    cmd: tmux
+    brew: tmux
+    apt: tmux
+    dnf: tmux
+    scoop: ""
+    special: "Windows 仅通过 WSL 使用"
+  - name: ghostty
+    cmd: ghostty
+    brew: ghostty
+    apt: ""
+    dnf: ghostty
+    scoop: ""
+    special: "macOS cask；Ubuntu 用 mkasberg/ghostty-ubuntu 脚本；Fedora 用 COPR scottames/ghostty"
+  - name: zsh-syntax-highlighting
+    cmd: ""
+    brew: zsh-syntax-highlighting
+    apt: zsh-syntax-highlighting
+    dnf: zsh-syntax-highlighting
+    scoop: ""
+    special: "shell 插件，无独立 cmd"
+  - name: zsh-autosuggestions
+    cmd: ""
+    brew: zsh-autosuggestions
+    apt: zsh-autosuggestions
+    dnf: zsh-autosuggestions
+    scoop: ""
+    special: "shell 插件，无独立 cmd"
+  - name: gh
+    cmd: gh
+    brew: gh
+    apt: gh
+    dnf: gh
+    scoop: gh
+    special: "Ubuntu 通过 cli/cli 官方 apt 源安装；GitHub CLI"

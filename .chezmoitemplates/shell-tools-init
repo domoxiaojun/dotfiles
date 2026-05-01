@@ -1,0 +1,78 @@
+{{/*
+shell-tools-init - bash/zsh 共享的工具初始化逻辑
+被 dot_zshrc.tmpl 和 dot_bash_aliases.tmpl 引用，避免重复
+
+包含：
+- starship / zoxide / fzf init 缓存（按 binary mtime 失效）
+- EDITOR 智能选择
+- Python/pip alias
+- PATH 注入
+*/}}
+
+# 检测当前 shell
+if [ -n "${ZSH_VERSION:-}" ]; then
+    __DOTFILES_SHELL=zsh
+elif [ -n "${BASH_VERSION:-}" ]; then
+    __DOTFILES_SHELL=bash
+else
+    __DOTFILES_SHELL=sh
+fi
+
+# =========================
+# 工具 init 缓存（按 binary mtime 失效，shell 启动加速 50-100ms）
+# =========================
+__dotfiles_init_cache() {
+    local tool="$1" cache="$2"
+    local bin
+    bin=$(command -v "$tool" 2>/dev/null) || return 0
+    if [ ! -f "$cache" ] || [ "$bin" -nt "$cache" ]; then
+        mkdir -p "$(dirname "$cache")"
+        case "$tool" in
+            starship)  "$bin" init "$__DOTFILES_SHELL" > "$cache" 2>/dev/null || true ;;
+            zoxide)    "$bin" init "$__DOTFILES_SHELL" > "$cache" 2>/dev/null || true ;;
+            fzf)       "$bin" "--$__DOTFILES_SHELL" > "$cache" 2>/dev/null || true ;;
+        esac
+    fi
+    # 容错：缓存空或损坏时不中断 shell 启动
+    [ -s "$cache" ] && { . "$cache" 2>/dev/null || true; }
+}
+
+__dotfiles_init_cache starship "${HOME}/.cache/starship/init.${__DOTFILES_SHELL}"
+__dotfiles_init_cache zoxide   "${HOME}/.cache/zoxide/init.${__DOTFILES_SHELL}"
+__dotfiles_init_cache fzf      "${HOME}/.cache/fzf/init.${__DOTFILES_SHELL}"
+
+# =========================
+# EDITOR 智能选择 (nvim > vim > vi)
+# =========================
+if command -v nvim >/dev/null 2>&1; then
+    export EDITOR=nvim
+    export VISUAL=nvim
+elif command -v vim >/dev/null 2>&1; then
+    export EDITOR=vim
+    export VISUAL=vim
+else
+    export EDITOR=vi
+    export VISUAL=vi
+fi
+
+# =========================
+# Python / pip 便捷别名
+# =========================
+if command -v python3 >/dev/null 2>&1; then
+    alias python=python3
+fi
+if command -v pip3 >/dev/null 2>&1; then
+    alias pip=pip3
+fi
+
+# =========================
+# PATH 注入（用户级 bin 目录）
+# =========================
+case ":${PATH}:" in
+    *":${HOME}/bin:"*) ;;
+    *) export PATH="${HOME}/bin:${PATH}" ;;
+esac
+case ":${PATH}:" in
+    *":${HOME}/.local/bin:"*) ;;
+    *) export PATH="${HOME}/.local/bin:${PATH}" ;;
+esac

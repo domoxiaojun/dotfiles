@@ -2,9 +2,11 @@
 
 > 我的跨平台终端配置文件，使用 [chezmoi](https://www.chezmoi.io/) 管理
 
+![CI](https://github.com/domoxiaojun/dotfiles/actions/workflows/test.yml/badge.svg)
 ![Ghostty + Starship + Tmux](https://img.shields.io/badge/Terminal-Ghostty-blue)
 ![Theme](https://img.shields.io/badge/Theme-Catppuccin_Mocha-pink)
 ![Platform](https://img.shields.io/badge/Platform-macOS%20|%20Linux%20|%20Windows-green)
+![License](https://img.shields.io/badge/License-MIT-yellow)
 
 ## 特性
 
@@ -39,9 +41,13 @@
 - `fd` - 更好的 find 替代品
 - `ripgrep` - 更好的 grep 替代品
 - `yazi` - 终端文件管理器
+- `zoxide` - 智能 cd（`z 项目名` 跳到含该名的常用目录）
+- `gh` - GitHub CLI（命令行操作 issue/pr/release）
+- `vim` - 跨平台最小可用配置（行号 / mouse / clipboard）
 
-### Shell 插件
+### Shell 增强
 
+- `fzf` 集成 - **Ctrl+R**（历史搜索）/ **Ctrl+T**（文件搜索）/ **Alt+C**（目录跳转）
 - `zsh-syntax-highlighting` - 命令语法高亮
 - `zsh-autosuggestions` - 智能命令补全提示
 
@@ -312,6 +318,31 @@ sudo dnf install wl-clipboard
 chezmoi edit-config
 ```
 
+### 重新输入 git 用户名/邮箱
+
+首次 `chezmoi init` 时会询问 Git 用户配置（如果系统检测到有效 git config 会弹菜单二选一）。
+如果当时填错了，或者本机 git config 后来更新了，按以下步骤重新交互：
+
+```bash
+# 清掉 chezmoi 缓存的答案
+chezmoi state delete-bucket --bucket=entryState
+# 删掉已生成的 yaml
+rm ~/.config/chezmoi/chezmoi.yaml
+# 再次 init，这次会重新弹菜单/输入框
+chezmoi init
+```
+
+### Windows 终端字体异常
+
+如果 Windows Terminal 没有显示 Nerd Font 字体（图标变成方块），运行诊断脚本：
+
+```powershell
+pwsh F:\path\to\dotfiles\scripts\fix_windows_style.ps1
+```
+
+它会检查 Meslo Nerd Font 是否安装、Windows Terminal 默认字体是否设置正确，
+能自动修复缺失的字体配置。
+
 ### Starship 未生效
 
 ```bash
@@ -326,10 +357,20 @@ curl -sS https://starship.rs/install.sh | sh
 
 ### 修改 Git 用户信息
 
-初始化时会自动读取 `git config` 中的用户信息。如果没有配置，可以选择：
-- 使用默认值
-- 从已有的 `git config` 读取
-- 手动输入
+首次 `chezmoi init` 会自动检测系统的 `git config user.name` / `user.email`：
+
+- **检测到有效配置** → 弹二选一菜单：
+  ```
+  检测到当前 git 配置: Domo <you@example.com>。
+  选择来源 (git=使用当前 / custom=手动输入) [git]: _
+  ```
+  回车（默认 `git`）→ 直接采用当前 git config 的值。
+  输入 `custom` 回车 → 进入自定义输入，可分别改名字和邮箱。
+
+- **未检测到 / 是占位符** → 直接逐项询问 `Git 用户名` 和 `Git 邮箱`，回车采用默认值。
+
+答案会被 chezmoi state 缓存，**后续 `chezmoi apply` 不再询问**。要重新输入见
+「故障排除」章节。
 
 也可以直接配置 git：
 

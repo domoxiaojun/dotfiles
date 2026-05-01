@@ -114,9 +114,10 @@ bind-key -T copy-mode-vi v send-keys -X begin-selection
 #  状态栏 (Status Bar)
 # ──────────────────────────────────────────────────────────────
 
-# 状态栏刷新间隔: 每秒刷新一次
+# 状态栏刷新间隔: 每 5 秒刷新一次
 # 影响状态栏上时间、CPU 等动态信息的更新频率
-set -g status-interval 1
+# 5 秒比 1 秒省 80% CPU 唤醒，肉眼无感差别
+set -g status-interval 5
 
 # 窗口列表居中: 窗口名在状态栏中间显示
 # 可选值: left (左对齐) / centre (居中) / right (右对齐)
@@ -141,10 +142,11 @@ set -g default-terminal "tmux-256color"
 
 # 真彩色支持: 开启 RGB 真彩色
 # 需要终端本身支持真彩色 (如 iTerm2, Alacritty, WezTerm, Ghostty)
-set -sa terminal-features ',xterm-256color:RGB'
+# 通配匹配 *256col*，覆盖 tmux-256color 和 xterm-256color 等常见 TERM
+set -sa terminal-features ',*256col*:RGB'
 
 # 终端覆盖: 真彩色支持
-set -ag terminal-overrides ",xterm-256color:RGB"
+set -ag terminal-overrides ",*256col*:RGB"
 {{ if eq .chezmoi.os "darwin" -}}
 # macOS 剪贴板支持
 set -ag terminal-overrides ",xterm-256color:Tc"
@@ -313,4 +315,7 @@ set -g @plugin 'tmux-plugins/tmux-cpu'
 # ──────────────────────────────────────────────────────────────
 #  初始化 TPM (必须放在最后)
 # ──────────────────────────────────────────────────────────────
-run '~/.tmux/plugins/tpm/tpm'
+# TPM 未装时友好提示，避免静默失败
+if-shell '[ -d ~/.tmux/plugins/tpm ]' \
+    "run '~/.tmux/plugins/tpm/tpm'" \
+    "display-message 'TPM 未安装：git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm'"

@@ -1,0 +1,41 @@
+# EditorConfig 跨编辑器统一缩进/换行/编码
+# https://editorconfig.org/
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# Shell 脚本
+[*.{sh,bash,zsh}]
+indent_size = 4
+
+# PowerShell 脚本（Windows 习惯用 CRLF）
+[*.{ps1,psm1,psd1}]
+end_of_line = crlf
+indent_size = 4
+
+# Python
+[*.py]
+indent_size = 4
+
+# Go
+[*.go]
+indent_style = tab
+
+# Makefile 必须用 tab
+[Makefile]
+indent_style = tab
+
+# YAML
+[*.{yml,yaml}]
+indent_size = 2
+
+# Markdown 不裁剪行尾空格（双空格表示换行）
+[*.md]
+trim_trailing_whitespace = false

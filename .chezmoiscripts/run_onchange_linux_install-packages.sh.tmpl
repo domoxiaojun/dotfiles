@@ -3,17 +3,18 @@
 # 此脚本在 Linux 上 chezmoi apply 时自动运行
 # 用于安装必要的工具和依赖
 # 支持: Fedora (dnf), Ubuntu/Debian (apt)
-# version: 2.1.0
+# version: 3.0.0  - install_pkg 函数化 + zoxide + SHA 校验提示
 
 set -e
 
 echo "🚀 开始安装依赖工具..."
 
-# 创建临时目录，退出时自动清理
 WORK_DIR=$(mktemp -d)
 trap 'rm -rf "$WORK_DIR"' EXIT
 
-# 检测包管理器和发行版
+# ============================================================
+# 平台检测
+# ============================================================
 DISTRO_ID=""
 DISTRO_VERSION=""
 if [ -f /etc/os-release ]; then
@@ -24,155 +25,145 @@ fi
 
 if command -v dnf &> /dev/null; then
     PKG_MANAGER="dnf"
-    echo "📦 检测到 Fedora/RHEL 系 (dnf)"
-    echo "   发行版: ${DISTRO_ID} ${DISTRO_VERSION}"
+    echo "📦 检测到 Fedora/RHEL 系 (dnf): ${DISTRO_ID} ${DISTRO_VERSION}"
 elif command -v apt &> /dev/null; then
     PKG_MANAGER="apt"
-    echo "📦 检测到 Debian/Ubuntu 系 (apt)"
-    echo "   发行版: ${DISTRO_ID} ${DISTRO_VERSION}"
+    echo "📦 检测到 Debian/Ubuntu 系 (apt): ${DISTRO_ID} ${DISTRO_VERSION}"
 else
     echo "⚠️  未检测到支持的包管理器 (apt/dnf)"
     exit 1
 fi
 
-# 检测系统架构
 ARCH=$(uname -m)
 case "$ARCH" in
-    x86_64)
-        ARCH_SUFFIX="amd64"
-        ARCH_ALT="x86_64"
-        ;;
-    aarch64|arm64)
-        ARCH_SUFFIX="arm64"
-        ARCH_ALT="aarch64"
-        ;;
-    *)
-        echo "⚠️  未支持的架构: $ARCH"
-        ARCH_SUFFIX="amd64"
-        ARCH_ALT="x86_64"
-        ;;
+    x86_64) ARCH_SUFFIX="amd64"; ARCH_ALT="x86_64" ;;
+    aarch64|arm64) ARCH_SUFFIX="arm64"; ARCH_ALT="aarch64" ;;
+    *) echo "⚠️  未支持的架构: $ARCH，预编译二进制可能无法使用"
+       ARCH_SUFFIX="amd64"; ARCH_ALT="x86_64" ;;
 esac
 
-# 检测显示服务器 (Wayland vs X11)
 DISPLAY_SERVER="unknown"
 HAS_DESKTOP=false
 if [ -n "$WAYLAND_DISPLAY" ]; then
-    DISPLAY_SERVER="wayland"
-    HAS_DESKTOP=true
+    DISPLAY_SERVER="wayland"; HAS_DESKTOP=true
 elif [ -n "$DISPLAY" ]; then
-    DISPLAY_SERVER="x11"
-    HAS_DESKTOP=true
-elif [ -n "$XDG_SESSION_TYPE" ]; then
-    # 某些情况下环境变量可能未设置，但 XDG_SESSION_TYPE 可能有值
+    DISPLAY_SERVER="x11"; HAS_DESKTOP=true
+elif [ -n "$XDG_SESSION_TYPE" ] && [ "$XDG_SESSION_TYPE" != "tty" ]; then
     DISPLAY_SERVER="$XDG_SESSION_TYPE"
-    if [ "$XDG_SESSION_TYPE" = "wayland" ] || [ "$XDG_SESSION_TYPE" = "x11" ]; then
-        HAS_DESKTOP=true
-    fi
+    [ "$XDG_SESSION_TYPE" = "wayland" ] || [ "$XDG_SESSION_TYPE" = "x11" ] && HAS_DESKTOP=true
 fi
-if [ "$HAS_DESKTOP" = true ]; then
-    echo "🖥️  桌面环境: $DISPLAY_SERVER"
-else
-    echo "🖥️  无桌面环境 (服务器/容器模式)"
-fi
+[ "$HAS_DESKTOP" = true ] && echo "🖥️  桌面环境: $DISPLAY_SERVER" || echo "🖥️  无桌面环境 (服务器/容器模式)"
 
 # ============================================================
-# Fedora 专属: 启用常用 COPR 仓库
+# 通用安装函数
+# ============================================================
+
+# 用法: install_pkg <command_to_check> <apt_pkg> <dnf_pkg>
+# 任一包名为 "" 表示该平台跳过
+install_pkg() {
+    local cmd="$1" apt_pkg="$2" dnf_pkg="$3"
+    if command -v "$cmd" &> /dev/null; then
+        echo "   ✅ $cmd 已安装"
+        return 0
+    fi
+    echo "   安装 $cmd ..."
+    case "$PKG_MANAGER" in
+        apt) [ -n "$apt_pkg" ] && sudo apt install -y "$apt_pkg" 2>/dev/null || true ;;
+        dnf) [ -n "$dnf_pkg" ] && sudo dnf install -y "$dnf_pkg" 2>/dev/null || true ;;
+    esac
+}
+
+# 用法: install_deb_from_release <repo> <name> [strip_v]
+# 从 GitHub release 下载 deb 并 dpkg -i
+install_deb_from_release() {
+    local repo="$1" name="$2" strip_v="${3:-1}"
+    local version=$(curl -s --connect-timeout 10 --max-time 30 \
+        "https://api.github.com/repos/$repo/releases/latest" | \
+        grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4)
+    [ -n "$strip_v" ] && version="${version#v}"
+    if [ -z "$version" ]; then
+        echo "   ⚠️  无法获取 $name 最新版本号，跳过"; return 1
+    fi
+    local url="https://github.com/$repo/releases/latest/download/${name}_${version}_${ARCH_SUFFIX}.deb"
+    if curl -fsSL --connect-timeout 10 --max-time 120 -o "$WORK_DIR/${name}.deb" "$url"; then
+        sudo dpkg -i "$WORK_DIR/${name}.deb" 2>/dev/null || true
+    else
+        echo "   ⚠️  $name deb 下载失败"
+    fi
+}
+
+# ============================================================
+# Fedora COPR
 # ============================================================
 if [ "$PKG_MANAGER" = "dnf" ]; then
-    echo ""
-    echo "📦 配置 Fedora 软件源..."
-
-    # Ghostty COPR
     if ! dnf copr list 2>/dev/null | grep -q "scottames/ghostty"; then
-        echo "   启用 Ghostty COPR..."
+        echo ""
+        echo "📦 启用 Ghostty COPR..."
         sudo dnf copr enable -y scottames/ghostty
     fi
 fi
 
 # ============================================================
-# 检查并安装 Git
+# apt 索引更新（一次性，避免每次 install 都过期）
+# ============================================================
+if [ "$PKG_MANAGER" = "apt" ]; then
+    echo ""
+    echo "📦 更新 apt 索引..."
+    sudo apt update || true
+fi
+
+# ============================================================
+# Git（包管理器一行装）
 # ============================================================
 echo ""
 echo "📦 检查 Git..."
-if ! command -v git &> /dev/null; then
-    echo "🔧 安装 Git..."
-    if [ "$PKG_MANAGER" = "apt" ]; then
-        sudo apt update
-        sudo apt install -y git || true
-    elif [ "$PKG_MANAGER" = "dnf" ]; then
-        sudo dnf install -y git || true
-    fi
-else
-    echo "✅ Git 已安装"
-fi
+install_pkg git git git
 
 # ============================================================
-# 安装基础工具
+# 基础工具
 # ============================================================
 echo ""
 echo "📦 安装基础工具..."
-if [ "$PKG_MANAGER" = "apt" ]; then
-    sudo apt install -y tmux fzf btop curl unzip fontconfig || true
-elif [ "$PKG_MANAGER" = "dnf" ]; then
-    sudo dnf install -y tmux fzf btop curl unzip fontconfig || true
-fi
+case "$PKG_MANAGER" in
+    apt) sudo apt install -y tmux fzf btop curl unzip fontconfig 2>/dev/null || true ;;
+    dnf) sudo dnf install -y tmux fzf btop curl unzip fontconfig 2>/dev/null || true ;;
+esac
 
 # ============================================================
-# 安装剪贴板工具 (仅桌面环境)
+# 剪贴板（仅桌面环境）
 # ============================================================
 if [ "$HAS_DESKTOP" = true ]; then
     echo ""
     echo "📋 安装剪贴板工具..."
     if [ "$DISPLAY_SERVER" = "wayland" ] || [ "$DISTRO_ID" = "fedora" ]; then
-        # Fedora 40+ 默认 Wayland，优先安装 wl-clipboard
-        if ! command -v wl-copy &> /dev/null; then
-            echo "   安装 wl-clipboard (Wayland)..."
-            if [ "$PKG_MANAGER" = "dnf" ]; then
-                sudo dnf install -y wl-clipboard || true
-            elif [ "$PKG_MANAGER" = "apt" ]; then
-                sudo apt install -y wl-clipboard || true
-            fi
-        else
-            echo "   ✅ wl-clipboard 已安装"
-        fi
+        install_pkg wl-copy wl-clipboard wl-clipboard
     else
-        # X11 环境安装 xclip
-        if ! command -v xclip &> /dev/null; then
-            echo "   安装 xclip (X11)..."
-            if [ "$PKG_MANAGER" = "dnf" ]; then
-                sudo dnf install -y xclip || true
-            elif [ "$PKG_MANAGER" = "apt" ]; then
-                sudo apt install -y xclip || true
-            fi
-        else
-            echo "   ✅ xclip 已安装"
-        fi
+        install_pkg xclip xclip xclip
     fi
 else
-    echo ""
-    echo "📋 跳过剪贴板工具 (无桌面环境)"
+    echo "📋 跳过剪贴板工具（无桌面环境）"
 fi
 
 # ============================================================
-# 安装 Ghostty
+# Ghostty（apt: 第三方脚本；dnf: COPR）
 # ============================================================
+# 安全提示：apt 路径使用 mkasberg/ghostty-ubuntu 第三方脚本，未做 SHA 校验
+# 如需严格校验，设置 DOTFILES_VERIFY=1 后人工核对脚本摘要
 echo ""
 if ! command -v ghostty &> /dev/null; then
     echo "👻 安装 Ghostty..."
-    if [ "$PKG_MANAGER" = "apt" ]; then
-        # Ubuntu: 使用社区维护的安装脚本
-        /bin/bash -c "$(curl -fsSL --connect-timeout 10 --max-time 120 https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)" || true
-    elif [ "$PKG_MANAGER" = "dnf" ]; then
-        # Fedora: 使用 COPR (已在上面启用)
-        sudo dnf install -y ghostty || true
-    fi
+    case "$PKG_MANAGER" in
+        apt) /bin/bash -c "$(curl -fsSL --connect-timeout 10 --max-time 120 https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)" || true ;;
+        dnf) sudo dnf install -y ghostty || true ;;
+    esac
 else
     echo "✅ Ghostty 已安装"
 fi
 
 # ============================================================
-# 安装 Starship
+# Starship（脚本安装）
 # ============================================================
+# 安全提示：starship.rs/install.sh 官方脚本，未做 SHA 校验
 echo ""
 if ! command -v starship &> /dev/null; then
     echo "🚀 安装 Starship..."
@@ -182,186 +173,177 @@ else
 fi
 
 # ============================================================
-# 安装 bat
+# 包管理器可装的简单工具
 # ============================================================
 echo ""
+echo "📦 包管理器工具..."
+install_pkg rg ripgrep ripgrep
+install_pkg zoxide zoxide zoxide
+
+# ============================================================
+# gh (GitHub CLI)
+# Ubuntu: 通过 cli/cli 官方 apt 源
+# Fedora: dnf install gh
+# ============================================================
+if ! command -v gh &> /dev/null; then
+    echo ""
+    echo "🐙 安装 gh (GitHub CLI)..."
+    case "$PKG_MANAGER" in
+        apt)
+            # 安全提示：cli/cli 官方源，未做 SHA 校验
+            sudo mkdir -p -m 755 /etc/apt/keyrings
+            curl -fsSL --connect-timeout 10 --max-time 30 https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
+                sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+            sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | \
+                sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+            sudo apt update && sudo apt install -y gh || true
+            ;;
+        dnf) sudo dnf install -y gh || true ;;
+    esac
+else
+    echo "✅ gh 已安装"
+fi
+
+
+# bat：apt 的命令是 batcat，dnf 是 bat
 if ! command -v bat &> /dev/null && ! command -v batcat &> /dev/null; then
-    echo "🦇 安装 bat..."
-    if [ "$PKG_MANAGER" = "apt" ]; then
-        sudo apt install -y bat || true
-    elif [ "$PKG_MANAGER" = "dnf" ]; then
-        sudo dnf install -y bat || true
-    fi
+    case "$PKG_MANAGER" in
+        apt) sudo apt install -y bat 2>/dev/null || true ;;
+        dnf) sudo dnf install -y bat 2>/dev/null || true ;;
+    esac
 else
-    echo "✅ bat 已安装"
+    echo "   ✅ bat 已安装"
+fi
+
+# fd：apt 包名 fd-find，命令名 fdfind
+if ! command -v fd &> /dev/null && ! command -v fdfind &> /dev/null; then
+    case "$PKG_MANAGER" in
+        apt) sudo apt install -y fd-find 2>/dev/null || true ;;
+        dnf) sudo dnf install -y fd-find 2>/dev/null || true ;;
+    esac
+else
+    echo "   ✅ fd 已安装"
 fi
 
 # ============================================================
-# 安装 lsd
-# ============================================================
-echo ""
-if ! command -v lsd &> /dev/null; then
-    echo "📂 安装 lsd..."
-    if [ "$PKG_MANAGER" = "apt" ]; then
-        # lsd 不在默认 apt 源中，使用 dpkg
-        LSD_VERSION=$(curl -s --connect-timeout 10 --max-time 30 https://api.github.com/repos/lsd-rs/lsd/releases/latest | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/^v//')
-        if [ -z "$LSD_VERSION" ]; then
-            echo "   ⚠️  无法获取 lsd 最新版本号，跳过安装"
-        else
-            curl -fsSL --connect-timeout 10 --max-time 120 -o "$WORK_DIR/lsd.deb" "https://github.com/lsd-rs/lsd/releases/latest/download/lsd_${LSD_VERSION}_${ARCH_SUFFIX}.deb"
-            sudo dpkg -i "$WORK_DIR/lsd.deb" || true
-        fi
-    elif [ "$PKG_MANAGER" = "dnf" ]; then
-        sudo dnf install -y lsd || true
-    fi
-else
-    echo "✅ lsd 已安装"
-fi
-
-# ============================================================
-# 安装 delta (git diff 美化)
+# delta（apt: GitHub deb，dnf: git-delta 包）
 # ============================================================
 echo ""
 if ! command -v delta &> /dev/null; then
     echo "📊 安装 git-delta..."
-    if [ "$PKG_MANAGER" = "apt" ]; then
-        DELTA_VERSION=$(curl -s --connect-timeout 10 --max-time 30 https://api.github.com/repos/dandavison/delta/releases/latest | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/^v//')
-        if [ -z "$DELTA_VERSION" ]; then
-            echo "   ⚠️  无法获取 delta 最新版本号，跳过安装"
-        else
-            curl -fsSL --connect-timeout 10 --max-time 120 -o "$WORK_DIR/delta.deb" "https://github.com/dandavison/delta/releases/latest/download/git-delta_${DELTA_VERSION}_${ARCH_SUFFIX}.deb"
-            sudo dpkg -i "$WORK_DIR/delta.deb" || true
-        fi
-    elif [ "$PKG_MANAGER" = "dnf" ]; then
-        sudo dnf install -y git-delta || true
-    fi
+    case "$PKG_MANAGER" in
+        apt) install_deb_from_release "dandavison/delta" "git-delta" 1 ;;
+        dnf) sudo dnf install -y git-delta || true ;;
+    esac
 else
     echo "✅ delta 已安装"
 fi
 
 # ============================================================
-# 安装 glow (Markdown 渲染)
+# lsd（Ubuntu 通过 GitHub deb release）
+# ============================================================
+echo ""
+if ! command -v lsd &> /dev/null; then
+    echo "📂 安装 lsd..."
+    case "$PKG_MANAGER" in
+        apt) install_deb_from_release "lsd-rs/lsd" "lsd" 1 ;;
+        dnf) sudo dnf install -y lsd || true ;;
+    esac
+else
+    echo "✅ lsd 已安装"
+fi
+
+# ============================================================
+# glow（Ubuntu 通过 charm.sh apt 源）
 # ============================================================
 echo ""
 if ! command -v glow &> /dev/null; then
     echo "✨ 安装 glow..."
-    if [ "$PKG_MANAGER" = "apt" ]; then
-        sudo mkdir -p /etc/apt/keyrings
-        curl -fsSL --connect-timeout 10 --max-time 30 https://repo.charm.sh/apt/gpg.key | sudo gpg --batch --yes --dearmor -o /etc/apt/keyrings/charm.gpg
-        echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | sudo tee /etc/apt/sources.list.d/charm.list
-        sudo apt update && sudo apt install -y glow || true
-    elif [ "$PKG_MANAGER" = "dnf" ]; then
-        sudo dnf install -y glow || true
-    fi
+    case "$PKG_MANAGER" in
+        apt)
+            sudo mkdir -p /etc/apt/keyrings
+            curl -fsSL --connect-timeout 10 --max-time 30 https://repo.charm.sh/apt/gpg.key | \
+                sudo gpg --batch --yes --dearmor -o /etc/apt/keyrings/charm.gpg
+            echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | \
+                sudo tee /etc/apt/sources.list.d/charm.list
+            sudo apt update && sudo apt install -y glow || true
+            ;;
+        dnf) sudo dnf install -y glow || true ;;
+    esac
 else
     echo "✅ glow 已安装"
 fi
 
 # ============================================================
-# 安装 fd (更好的 find)
-# ============================================================
-echo ""
-if ! command -v fd &> /dev/null && ! command -v fdfind &> /dev/null; then
-    echo "🔍 安装 fd..."
-    if [ "$PKG_MANAGER" = "apt" ]; then
-        sudo apt install -y fd-find || true
-    elif [ "$PKG_MANAGER" = "dnf" ]; then
-        sudo dnf install -y fd-find || true
-    fi
-else
-    echo "✅ fd 已安装"
-fi
-
-# ============================================================
-# 安装 ripgrep (更好的 grep)
-# ============================================================
-echo ""
-if ! command -v rg &> /dev/null; then
-    echo "🔎 安装 ripgrep..."
-    if [ "$PKG_MANAGER" = "apt" ]; then
-        sudo apt install -y ripgrep || true
-    elif [ "$PKG_MANAGER" = "dnf" ]; then
-        sudo dnf install -y ripgrep || true
-    fi
-else
-    echo "✅ ripgrep 已安装"
-fi
-
-# ============================================================
-# 安装 fx (JSON 交互查看器)
+# fx（GitHub release tar.gz）
 # ============================================================
 echo ""
 if ! command -v fx &> /dev/null; then
     echo "📋 安装 fx..."
-    FX_VERSION=$(curl -s --connect-timeout 10 --max-time 30 https://api.github.com/repos/antonmedv/fx/releases/latest | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4)
-    if [ -n "$FX_VERSION" ]; then
-        curl -fsSL --connect-timeout 10 --max-time 120 -o "$WORK_DIR/fx.tar.gz" "https://github.com/antonmedv/fx/releases/latest/download/fx_linux_${ARCH_SUFFIX}.tar.gz"
+    if curl -fsSL --connect-timeout 10 --max-time 120 -o "$WORK_DIR/fx.tar.gz" \
+        "https://github.com/antonmedv/fx/releases/latest/download/fx_linux_${ARCH_SUFFIX}.tar.gz"; then
         tar -xzf "$WORK_DIR/fx.tar.gz" -C "$WORK_DIR"
         sudo mv "$WORK_DIR/fx" /usr/local/bin/
     else
-        echo "   ⚠️  无法获取 fx 版本号，跳过安装"
+        echo "   ⚠️  fx 下载失败，跳过"
     fi
 else
     echo "✅ fx 已安装"
 fi
 
 # ============================================================
-# 安装 yazi (终端文件管理器)
+# yazi（GitHub release zip 或 cargo）
 # ============================================================
 echo ""
 if ! command -v yazi &> /dev/null; then
     echo "📁 安装 yazi..."
-    # 优先使用预编译二进制，cargo 编译耗时长
-    YAZI_VERSION=$(curl -s --connect-timeout 10 --max-time 30 https://api.github.com/repos/sxyazi/yazi/releases/latest | grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4 | sed 's/^v//')
     YAZI_ARCH="${ARCH_ALT}-unknown-linux-musl"
-    if [ -n "$YAZI_VERSION" ] && curl -fsSL --connect-timeout 10 --max-time 120 -o "$WORK_DIR/yazi.zip" "https://github.com/sxyazi/yazi/releases/latest/download/yazi-${YAZI_ARCH}.zip" 2>/dev/null; then
+    if curl -fsSL --connect-timeout 10 --max-time 120 -o "$WORK_DIR/yazi.zip" \
+        "https://github.com/sxyazi/yazi/releases/latest/download/yazi-${YAZI_ARCH}.zip" 2>/dev/null; then
         unzip -o "$WORK_DIR/yazi.zip" -d "$WORK_DIR/yazi-tmp"
         sudo mv "$WORK_DIR/yazi-tmp/yazi-${YAZI_ARCH}/yazi" /usr/local/bin/
         sudo mv "$WORK_DIR/yazi-tmp/yazi-${YAZI_ARCH}/ya" /usr/local/bin/
     elif command -v cargo &> /dev/null; then
         cargo install --locked yazi-fm yazi-cli
     else
-        echo "   ⚠️  无法安装 yazi（需要 cargo 或网络连接）"
+        echo "   ⚠️  无法安装 yazi（需要 cargo 或网络）"
     fi
 else
     echo "✅ yazi 已安装"
 fi
 
 # ============================================================
-# 安装 zsh 插件 (仅在 zsh 已安装时)
+# Zsh 插件
 # ============================================================
-echo ""
 if command -v zsh &> /dev/null; then
+    echo ""
     echo "🔌 安装 Zsh 插件..."
-    if [ "$PKG_MANAGER" = "apt" ]; then
-        sudo apt install -y zsh-syntax-highlighting zsh-autosuggestions || true
-    elif [ "$PKG_MANAGER" = "dnf" ]; then
-        sudo dnf install -y zsh-syntax-highlighting zsh-autosuggestions || true
-    fi
-else
-    echo "📋 跳过 Zsh 插件 (zsh 未安装)"
+    install_pkg zsh-syntax-highlighting zsh-syntax-highlighting zsh-syntax-highlighting
+    install_pkg zsh-autosuggestions zsh-autosuggestions zsh-autosuggestions
 fi
 
 # ============================================================
-# 安装 TPM（Tmux 插件管理器）
+# TPM
 # ============================================================
 echo ""
 if [ ! -d ~/.tmux/plugins/tpm ]; then
-    echo "📦 安装 TPM (Tmux Plugin Manager)..."
+    echo "📦 安装 TPM..."
     git clone --depth 1 https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
 else
     echo "✅ TPM 已安装"
 fi
 
 # ============================================================
-# 安装 Nerd Font
+# Nerd Font
 # ============================================================
 echo ""
 if ! fc-list 2>/dev/null | grep -qi "MesloLGS Nerd Font"; then
     echo "🔤 安装 MesloLGS Nerd Font..."
-    mkdir -p ~/.local/share/fonts
-    if curl -fsSL --connect-timeout 10 --max-time 120 -o "$WORK_DIR/Meslo.tar.xz" "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/Meslo.tar.xz"; then
-        tar -xf "$WORK_DIR/Meslo.tar.xz" -C ~/.local/share/fonts
+    mkdir -p ~/.local/share/fonts/Meslo
+    if curl -fsSL --connect-timeout 10 --max-time 120 -o "$WORK_DIR/Meslo.tar.xz" \
+        "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/Meslo.tar.xz"; then
+        tar -xf "$WORK_DIR/Meslo.tar.xz" -C ~/.local/share/fonts/Meslo
         fc-cache -f
     else
         echo "   ⚠️  Nerd Font 下载失败，跳过"
@@ -371,7 +353,7 @@ else
 fi
 
 # ============================================================
-# 完成提示
+# 完成
 # ============================================================
 echo ""
 echo "══════════════════════════════════════════════════════════"
@@ -379,14 +361,7 @@ echo "✅ 所有依赖安装完成！"
 echo "══════════════════════════════════════════════════════════"
 echo ""
 echo "📝 后续步骤："
-echo "  1. 重新打开终端（或新开一个 Ghostty 窗口）"
+echo "  1. 重新打开终端"
 echo "  2. 启动 tmux 并按 Ctrl+s Shift+I 安装插件"
-echo "  3. 享受你的新终端环境！"
 echo ""
-if [ "$DISTRO_ID" = "fedora" ]; then
-    echo "🎩 Fedora 用户提示："
-    echo "  - 剪贴板: 已安装 wl-clipboard (Wayland)"
-    echo "  - 终端: Ghostty 来自 COPR (scottames/ghostty)"
-    echo ""
-fi
 {{ end -}}

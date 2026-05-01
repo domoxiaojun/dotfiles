@@ -3,36 +3,34 @@
 # 此文件会被 Ubuntu/Debian 默认的 ~/.bashrc 自动加载
 # =========================
 
+# Locale（仅当系统未设置时兜底）
+export LANG="${LANG:-en_US.UTF-8}"
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
+
 # 支持 tmux 使用 Ctrl+s 作为 prefix。
 # 仅在交互式终端中关闭软件流控，跳过 Linux 纯控制台 tty (TERM=linux)。
 if [[ $- == *i* ]] && [[ -t 0 ]] && [[ "${TERM:-}" != "linux" ]] && command -v stty >/dev/null 2>&1; then
   stty -ixon
 fi
 
-# =========================
-# Prompt
-# =========================
-if command -v starship &> /dev/null; then
-  eval "$(starship init bash)"
-fi
 
 # =========================
-# Convenience aliases
+# 历史记录（多 session 追加、去重）
 # =========================
-if command -v python3 &> /dev/null; then
-  alias python=python3
-fi
-if command -v pip3 &> /dev/null; then
-  alias pip=pip3
-fi
+export HISTSIZE=10000
+export HISTFILESIZE=10000
+export HISTCONTROL=ignoreboth:erasedups   # 忽略空格开头/重复，且擦除旧重复
+shopt -s histappend                        # 追加而非覆盖（多 session 不互相覆盖）
+shopt -s cmdhist                           # 多行命令保存为单条历史
+
+
+# =========================
+# 工具初始化（starship / zoxide / fzf 缓存版 + EDITOR + Python alias + PATH）
+# =========================
+{{ template "shell-tools-init" . }}
+
 
 # =========================
 # 终端美化工具别名（共享配置）
 # =========================
 {{ template "shell-aliases" . }}
-
-# =========================
-# PATH additions
-# =========================
-# chezmoi
-export PATH="$HOME/bin:$HOME/.local/bin:$PATH"
