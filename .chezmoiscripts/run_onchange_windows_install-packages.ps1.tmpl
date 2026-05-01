@@ -352,9 +352,11 @@ else {
 Write-Host "`n[9/9] 同步 PowerShell Profile ..." -ForegroundColor Cyan
 
 $chezmoiProfile = Join-Path $env:USERPROFILE "Documents\PowerShell\Microsoft.PowerShell_profile.ps1"
-$actualProfile = & pwsh -NoLogo -NonInteractive -Command 'echo $PROFILE' 2>$null
+# 用 -NoProfile 跳过用户 profile 加载（避免 profile 错误污染 stdout，例如 PSReadLine 在
+# 非交互式终端下报 virtual terminal 错误，会让 echo $PROFILE 返回空字符串）
+$actualProfile = & pwsh -NoLogo -NonInteractive -NoProfile -Command 'echo $PROFILE' 2>$null
 if (-not $actualProfile) {
-    $actualProfile = & powershell -NoLogo -NonInteractive -Command 'echo $PROFILE' 2>$null
+    $actualProfile = & powershell -NoLogo -NonInteractive -NoProfile -Command 'echo $PROFILE' 2>$null
 }
 
 if ($actualProfile -and $chezmoiProfile -and ($actualProfile -ne $chezmoiProfile) -and (Test-Path $chezmoiProfile)) {
