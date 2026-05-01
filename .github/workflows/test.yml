@@ -37,16 +37,27 @@ jobs:
         if: runner.os != 'Windows'
         run: echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Render all .tmpl files
+      - name: Render .chezmoi.yaml.tmpl (init mode)
         shell: bash
         run: |
           set -e
           mkdir -p /tmp/rendered
-          for f in $(find . -name "*.tmpl" -not -path "./.git/*"); do
-            echo "渲染: $f"
+          # init 模式只用于渲染 .chezmoi.yaml.tmpl（其它模板不能用 --init，
+          # 因为 init 模式下 .chezmoitemplates 不可用）
+          if [ -f .chezmoi.yaml.tmpl ]; then
+            echo "渲染 (init): .chezmoi.yaml.tmpl"
             chezmoi execute-template --source . --init \
               --promptString "name=CI" --promptString "email=ci@example.com" \
-              < "$f" > "/tmp/rendered/$(basename "$f")" 2>&1
+              < .chezmoi.yaml.tmpl > /tmp/rendered/chezmoi.yaml
+          fi
+
+      - name: Render all other .tmpl files (normal mode)
+        shell: bash
+        run: |
+          set -e
+          for f in $(find . -name "*.tmpl" -not -path "./.git/*" -not -name ".chezmoi.yaml.tmpl"); do
+            echo "渲染: $f"
+            chezmoi execute-template --source . -f "$f" > "/tmp/rendered/$(basename "${f%.tmpl}")"
           done
 
       - name: Syntax check rendered shell scripts
@@ -59,7 +70,7 @@ jobs:
           done
           # zsh 语法检查（仅 macOS/Ubuntu 默认有 zsh，Linux 上需先装）
           if command -v zsh >/dev/null 2>&1; then
-            for f in /tmp/rendered/zshrc /tmp/rendered/zprofile; do
+            for f in /tmp/rendered/dot_zshrc /tmp/rendered/dot_zprofile; do
               [ -f "$f" ] && zsh -n "$f" && echo "[OK] zsh -n $f"
             done
           fi
@@ -97,9 +108,8 @@ jobs:
           mkdir -p /tmp/rendered
           for f in $(find . -name "*.sh.tmpl" -not -path "./.git/*"); do
             echo "渲染: $f"
-            chezmoi execute-template --source . --init \
-              --promptString "name=CI" --promptString "email=ci@example.com" \
-              < "$f" > "/tmp/rendered/$(basename "${f%.tmpl}")"
+            chezmoi execute-template --source . -f "$f" \
+              > "/tmp/rendered/$(basename "${f%.tmpl}")"
           done
           # shellcheck（容错：dotfiles 脚本常用 sudo / source 等动态特性，部分警告可忽略）
           # SC1090/1091: source 动态路径；SC2155: declare 同时赋值；SC2034: 未使用变量（chezmoi 注入的可能用）
