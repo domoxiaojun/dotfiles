@@ -32,6 +32,8 @@ jobs:
           irm get.scoop.sh -outfile install.ps1
           .\install.ps1 -RunAsAdmin
           scoop install chezmoi
+          # 把 scoop shims 加到 GITHUB_PATH，后续 bash step 才能找到 chezmoi
+          Add-Content $env:GITHUB_PATH "$env:USERPROFILE\scoop\shims"
 
       - name: Add chezmoi to PATH (Unix)
         if: runner.os != 'Windows'
