@@ -41,7 +41,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          mkdir -p /tmp/rendered
+          mkdir -p /tmp/rendered "$HOME/.config/chezmoi"
           # init 模式只用于渲染 .chezmoi.yaml.tmpl（其它模板不能用 --init，
           # 因为 init 模式下 .chezmoitemplates 不可用）
           if [ -f .chezmoi.yaml.tmpl ]; then
@@ -49,6 +49,9 @@ jobs:
             chezmoi execute-template --source . --init \
               --promptString "name=CI" --promptString "email=ci@example.com" \
               < .chezmoi.yaml.tmpl > /tmp/rendered/chezmoi.yaml
+            # 把渲染好的 yaml 放到 chezmoi 默认配置位置，让后续 normal-mode 渲染
+            # 能拿到 .git.user.name 等模板数据
+            cp /tmp/rendered/chezmoi.yaml "$HOME/.config/chezmoi/chezmoi.yaml"
           fi
 
       - name: Render all other .tmpl files (normal mode)
@@ -105,7 +108,11 @@ jobs:
       - name: Render shell scripts and shellcheck
         run: |
           export PATH="$HOME/.local/bin:$PATH"
-          mkdir -p /tmp/rendered
+          mkdir -p /tmp/rendered "$HOME/.config/chezmoi"
+          # 先生成 chezmoi.yaml 让模板能拿到 .git.user.name 等数据
+          chezmoi execute-template --source . --init \
+            --promptString "name=CI" --promptString "email=ci@example.com" \
+            < .chezmoi.yaml.tmpl > "$HOME/.config/chezmoi/chezmoi.yaml"
           for f in $(find . -name "*.sh.tmpl" -not -path "./.git/*"); do
             echo "渲染: $f"
             chezmoi execute-template --source . -f "$f" \
