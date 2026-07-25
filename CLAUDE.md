@@ -38,19 +38,19 @@ chezmoi apply -v
 
 ```
 .chezmoidata/tools.yaml  (字段: cmd/brew/apt/apt_cmd/dnf/scoop/bucket/special)
-   ├→ .chezmoi.yaml.tmpl        init 时 lookPath 检测,生成 .tools.<cmd> 布尔值
-   └→ .chezmoiscripts/run_onchange_{darwin,linux,windows}_install-packages.*
+   ├→ .chezmoi.yaml.tmpl        init 时 lookPath 检测,生成 .tools.<cmd> 布尔值(目前无模板消费)
+   └→ .chezmoiscripts/run_onchange_{darwin,windows}_install-packages.*
                                  遍历清单安装(chezmoi apply 时内容变化才执行)
 ```
 
-**添加新工具只需改 tools.yaml**,三个安装脚本自动遍历;Ubuntu 命令名不同的工具用 `apt_cmd` 字段(如 bat→batcat、fd→fdfind)。`.chezmoi.yaml.tmpl` 在 init 阶段 `.chezmoidata` 尚未加载,所以它用 `include ".chezmoidata/tools.yaml" | fromYaml` 直接读文件——修改时保持这个模式。
+添加新工具:改 tools.yaml 后 darwin(`brew` 字段)/windows(`scoop` 字段)安装脚本自动遍历;**Linux 安装脚本是手写的,`apt`/`dnf`/`bucket` 字段目前无消费者,新工具需同步手改 linux 脚本**。Ubuntu 命令名不同的工具用 `apt_cmd` 字段(如 bat→batcat、fd→fdfind)。`.chezmoi.yaml.tmpl` 在 init 阶段 `.chezmoidata` 尚未加载,所以它用 `include ".chezmoidata/tools.yaml" | fromYaml` 直接读文件——修改时保持这个模式。
 
 ### chezmoi 关键机制
 
 - 命名映射:`dot_zshrc.tmpl` → `~/.zshrc`,`private_dot_config/` → `~/.config/`,`.tmpl` 后缀 = Go 模板。
 - `.chezmoitemplates/` 存放跨 shell 共享片段(`shell-tools-init`、`shell-aliases`),由 `dot_zshrc.tmpl` 和 `dot_bash_aliases.tmpl` 通过 `{{ template "shell-tools-init" . }}` 引用——bash/zsh 共用逻辑改这里,不要在两边重复。
 - `.chezmoiignore` 按平台条件忽略(Windows 跳过 Unix 配置、Linux 默认跳过 zshrc、非 Windows 跳过 Documents/)。**任何仅仓库内有意义的文件(README、CLAUDE.md、scripts/ 等)必须加入 .chezmoiignore,否则 chezmoi apply 会把它部署到 $HOME**。
-- 模板内条件渲染用 `.chezmoi.os`(darwin/linux/windows)、`.system.is_fedora/is_ubuntu/is_wayland`、`.tools.<cmd>`。
+- 模板内条件渲染实际使用的是 `.chezmoi.os`(darwin/linux/windows)和 `.git.*`;chezmoi.yaml 里生成的 `.system.*`/`.tools.*` 目前没有任何模板消费。
 - git 用户信息在 `chezmoi init` 时通过 `promptChoiceOnce/promptStringOnce` 交互获取并缓存在 chezmoi state;重置:`chezmoi state delete-bucket --bucket=entryState` 后删掉 `~/.config/chezmoi/chezmoi.yaml` 再 init。
 
 ### 跨平台约定
