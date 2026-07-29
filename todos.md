@@ -13,7 +13,7 @@ chezmoi apply 会静默覆盖。本轮已把这类内容迁到 ~/.zshrc.local(�
 → 工具的价值在**编排**它们 + 识别「安装器追加块」+ 一键搬到 .local
 
 ## 任务
-- [x] 1. 脚本骨架:private_dot_local/bin/executable_chezmoi-check → ~/.local/bin/chezmoi-check
+- [x] 1. 脚本骨架:dot_local/bin/executable_chezmoi-check → ~/.local/bin/chezmoi-check
 - [x] 2. 检测 A:遍历 chezmoi status,列出第一列非空的条目
 - [x] 3. 检测 B:用 `diff <(chezmoi cat f) f` 取「本地多出来的行」,
        并按 >>>/<<</Added by/installer/Completion 等特征标注「像安装器追加」
@@ -33,7 +33,7 @@ chezmoi apply 会静默覆盖。本轮已把这类内容迁到 ~/.zshrc.local(�
       .zshrc 恢复为仓库版本 / 块已迁入 .zshrc.local / 新建文件带说明头 / 覆盖前有备份
 - [x] shellcheck 通过(CI 同参数);bash -n 通过
 - [x] 非 TTY 下不卡住,输出「非交互模式:只报告,不询问」
-- [x] CI 增加对 private_dot_local/bin/ 的 shellcheck(此前只覆盖 *.sh.tmpl)
+- [x] CI 增加对 dot_local/bin/ 的 shellcheck(此前只覆盖 *.sh.tmpl)
 - [x] .chezmoiignore:Windows 忽略该脚本
 - [x] README / CHANGELOG / CLAUDE.md 同步
 - [x] 分组提交

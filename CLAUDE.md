@@ -78,7 +78,7 @@ chezmoi execute-template --config "$RD/chezmoi.yaml" --source . -f dot_zshrc.tmp
 安装器(nvm/conda/各类 CLI 补全)会自行往 `~/.zshrc` 追加内容,而 `.zshrc` 受 chezmoi 管理,下次 apply 会静默覆盖。处理约定:
 
 - `~/.zshrc` 末尾有钩子加载 `~/.zshrc.local`,后者**不纳入 chezmoi**,是这类内容的归宿。
-- `private_dot_local/bin/executable_chezmoi-check` → `~/.local/bin/chezmoi-check` 负责发现和搬运:基于 `chezmoi status` 第一列(非空=本地改过)+ `chezmoi cat` 与实际文件的 diff 取「多出来的行」。
+- `dot_local/bin/executable_chezmoi-check` → `~/.local/bin/chezmoi-check` 负责发现和搬运:基于 `chezmoi status` 第一列(非空=本地改过)+ `chezmoi cat` 与实际文件的 diff 取「多出来的行」。注意这里**不能用 `private_` 前缀** —— 那会把 `~/.local` 整个目录改成 0700,而它是标准 XDG 目录,下面还有别的工具在用的 `share`/`state`。
 - 该脚本**没有**挂成 `hooks.apply.pre`,因为它内部会调用 `chezmoi apply` 恢复文件,挂上去会递归。要改成自动执行必须先加环境变量守卫。
 - 脚本末尾用 `[ "${BASH_SOURCE[0]:-$0}" = "$0" ]` 守卫,可被 source 后替换 `ask`/`chezmoi` 做隔离测试(见 CHANGELOG 对应条目的做法:临时 HOME + 桩函数,不碰真实文件)。
 - 写这类脚本注意 **macOS 是 BSD sed/grep,不支持 `\s`**,一律用 `[[:space:]]`。

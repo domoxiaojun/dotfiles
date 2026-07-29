@@ -8,7 +8,7 @@
 - `chezmoi-check` 工具（部署到 `~/.local/bin/`）：检测被本地手改、`chezmoi apply` 会静默覆盖的文件，识别安装器自动追加的块，并支持一键搬进 `~/.zshrc.local`；同时检查 `.zshrc.local` 中失效的 `source` 路径。无 TTY 时降级为只报告，退出码 0/1 便于脚本判断
 - `~/.zshrc.local` 钩子：`.zshrc` 末尾加载该文件，不纳入 chezmoi 管理，供安装器追加的内容长期存放
 - Bitwarden SSH agent 配置收进 `dot_zshrc.tmpl` 的 macOS 段（此前只在本机 `~/.zshrc` 里，apply 会覆盖导致 `SSH_AUTH_SOCK` 丢失）
-- CI 的 shellcheck 覆盖 `private_dot_local/bin/` 下的纯 shell 脚本（此前只检查 `*.sh.tmpl` 渲染结果）
+- CI 的 shellcheck 覆盖 `dot_local/bin/` 下的纯 shell 脚本（此前只检查 `*.sh.tmpl` 渲染结果）
 - fzf 体验：Catppuccin Mocha 配色、Ctrl+T 用 bat 预览文件 / Alt+C 用 lsd 树状预览目录、Ctrl+R 长命令可展开；后端优先用 fd（尊重 `.gitignore`，比 find 快），并兼容 Ubuntu 的 fdfind / batcat 命令名
 - bat 配置 `.config/bat/config`：模板在 apply 时探测本机 bat 是否内置 Catppuccin（bat ≥ 0.25）再决定是否写入 `--theme`，旧版 bat 上不会每次 cat 都打印 "Unknown theme" 警告
 - btop 配置与 Catppuccin Mocha 主题：btop 内置主题不含 Catppuccin，主题文件随仓库部署；`btop.conf` 用 chezmoi 的 `create_` 前缀（btop 退出会回写完整配置，持续管理会让 `chezmoi diff` 永远有差异）
