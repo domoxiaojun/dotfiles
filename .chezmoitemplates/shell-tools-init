@@ -37,6 +37,58 @@ __dotfiles_init_cache() {
     [ -s "$cache" ] && { . "$cache" 2>/dev/null || true; }
 }
 
+# =========================
+# fzf 默认行为(配色 / 后端 / 预览)
+# 必须在 fzf init 之前设置：key-bindings 运行时读取这些变量
+# =========================
+if command -v fzf > /dev/null 2>&1; then
+    # Catppuccin Mocha 配色，与 Ghostty / tmux / bat 主题统一
+    export FZF_DEFAULT_OPTS="
+      --height 60% --layout=reverse --border=rounded --info=inline
+      --color=bg+:#313244,bg:#1e1e2e,spinner:#f5e0dc,hl:#f38ba8
+      --color=fg:#cdd6f4,header:#f38ba8,info:#cba6f7,pointer:#f5e0dc
+      --color=marker:#b4befe,fg+:#cdd6f4,prompt:#cba6f7,hl+:#f38ba8"
+
+    # 后端优先用 fd：尊重 .gitignore、跳过 .git，比默认的 find 快一个量级
+    # (Ubuntu/Debian 上命令名是 fdfind)
+    __dotfiles_fd=""
+    if command -v fd > /dev/null 2>&1; then
+        __dotfiles_fd="fd"
+    elif command -v fdfind > /dev/null 2>&1; then
+        __dotfiles_fd="fdfind"
+    fi
+    if [ -n "$__dotfiles_fd" ]; then
+        export FZF_DEFAULT_COMMAND="$__dotfiles_fd --type f --hidden --follow --exclude .git"
+        export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+        export FZF_ALT_C_COMMAND="$__dotfiles_fd --type d --hidden --follow --exclude .git"
+    fi
+
+    # Ctrl+T 文件预览（bat 高亮，无 bat 时退回 head）
+    __dotfiles_bat=""
+    if command -v bat > /dev/null 2>&1; then
+        __dotfiles_bat="bat"
+    elif command -v batcat > /dev/null 2>&1; then
+        __dotfiles_bat="batcat"
+    fi
+    if [ -n "$__dotfiles_bat" ]; then
+        export FZF_CTRL_T_OPTS="--preview '$__dotfiles_bat --color=always --style=numbers --line-range=:200 {}' --preview-window=right:60%:wrap"
+    else
+        export FZF_CTRL_T_OPTS="--preview 'head -200 {}' --preview-window=right:60%:wrap"
+    fi
+
+    # Alt+C 目录预览（lsd 树状，无 lsd 时退回 ls）
+    if command -v lsd > /dev/null 2>&1; then
+        export FZF_ALT_C_OPTS="--preview 'lsd --tree --depth 2 --color=always {}' --preview-window=right:50%"
+    else
+        export FZF_ALT_C_OPTS="--preview 'ls -1 {}' --preview-window=right:50%"
+    fi
+
+    # Ctrl+R 历史：长命令在下方完整展开，避免被截断看不全
+    export FZF_CTRL_R_OPTS="--preview 'echo {}' --preview-window=down:3:hidden:wrap --bind '?:toggle-preview'"
+
+    unset __dotfiles_fd __dotfiles_bat
+fi
+
 __dotfiles_init_cache starship "${HOME}/.cache/starship/init.${__DOTFILES_SHELL}"
 __dotfiles_init_cache zoxide   "${HOME}/.cache/zoxide/init.${__DOTFILES_SHELL}"
 __dotfiles_init_cache fzf      "${HOME}/.cache/fzf/init.${__DOTFILES_SHELL}"
