@@ -37,9 +37,13 @@ ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE='fg=8'
 # =========================
 
 {{ if eq .chezmoi.os "darwin" -}}
-# 缓存 brew --prefix 避免在配置加载期间多次派生子进程
-if type brew &>/dev/null; then
-  export BREW_PREFIX=$(brew --prefix)
+# 复用 .zprofile 中 brew shellenv 导出的 HOMEBREW_PREFIX，避免每次启动派生 brew 子进程
+if [ -n "${HOMEBREW_PREFIX:-}" ]; then
+  export BREW_PREFIX="$HOMEBREW_PREFIX"
+elif [ -x /opt/homebrew/bin/brew ]; then
+  export BREW_PREFIX=/opt/homebrew
+elif [ -x /usr/local/bin/brew ]; then
+  export BREW_PREFIX=/usr/local
 fi
 
 # Docker CLI completion (macOS)
@@ -59,6 +63,9 @@ autoload -Uz compinit
 # 缓存文件 24 小时内有效，跳过 compaudit 检查（启动加速 ~50%）
 if [[ -n ${ZDOTDIR:-$HOME}/.zcompdump(#qN.mh+24) ]]; then
   compinit
+  # 全量检查后刷新 mtime：dump 内容未变时 compinit 不会重写文件，
+  # 不 touch 的话超过 24h 后每次启动都会走慢路径
+  touch "${ZDOTDIR:-$HOME}/.zcompdump"
 else
   compinit -C
 fi

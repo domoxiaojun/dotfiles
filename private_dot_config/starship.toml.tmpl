@@ -18,6 +18,7 @@ $golang\
 $java\
 $docker_context\
 $package\
+$cmd_duration\
 $line_break\
 $character"""
 
@@ -101,4 +102,10 @@ only_with_files = true
 format = "[$symbol$version]($style) "
 symbol = "󰏗 "
 style = "bold 208"
+
+# 慢命令耗时提示（自定义 format 后默认模块被关闭，需显式加回）
+[cmd_duration]
+min_time = 2000
+format = "[󰔟 $duration]($style) "
+style = "yellow"
 
