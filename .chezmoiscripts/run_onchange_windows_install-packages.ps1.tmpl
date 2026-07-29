@@ -2,13 +2,17 @@
 #!/usr/bin/env pwsh
 # Windows 包安装脚本
 # chezmoi apply 时自动执行
-# version: 3.0.0
+# version: 3.1.0
 #
 # 修改记录:
+#   3.1.0 - 嵌入 PowerShell profile 内容哈希（profile 变更时触发本 run_onchange 脚本重跑，
+#           重新执行第 9 步，把新 profile 同步到 Documents 重定向位置）
 #   3.0.0 - 工具清单数据化、报告简化（去 ASCII 框）、zoxide+PSFzf、PATH 一次性写入、SHA 校验提示
 #   2.2.1 - 修复 scoop update 失败后仍触发自动更新、Git 路径遍历查找
 #   2.1.0 - 添加安装结果跟踪和汇总报告
 #   2.0.0 - 修复 Scoop 路径硬编码、工具列表补全、容错机制、字体包名
+#
+# profile hash: {{ include "Documents/PowerShell/Microsoft.PowerShell_profile.ps1" | sha256sum }}
 
 $ErrorActionPreference = 'Stop'
 
@@ -31,7 +35,7 @@ function Add-Result {
 }
 
 Write-Host "`n========================================" -ForegroundColor Cyan
-Write-Host "  Windows 终端工具安装脚本 v3.0.0" -ForegroundColor Cyan
+Write-Host "  Windows 终端工具安装脚本 v3.1.0" -ForegroundColor Cyan
 Write-Host "========================================`n" -ForegroundColor Cyan
 
 # ============================================================
