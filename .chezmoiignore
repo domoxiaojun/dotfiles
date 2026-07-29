@@ -8,6 +8,8 @@ README.md
 LICENSE
 CHANGELOG.md
 CLAUDE.md
+todos.md
+.claude/
 .editorconfig
 .gitattributes
 .github/
@@ -25,6 +27,11 @@ CLAUDE.md
 # Documents 目录仅 Windows 需要 (PowerShell profile)
 {{ if ne .chezmoi.os "windows" }}
 Documents/
+{{ end }}
+
+# .bashrc.d 仅 Linux 需要（Fedora/RHEL 系默认 bashrc 只加载 ~/.bashrc.d/*）
+{{ if ne .chezmoi.os "linux" }}
+.bashrc.d/
 {{ end }}
 
 # Linux 上忽略 .zshrc (使用系统默认 shell + .bash_aliases)

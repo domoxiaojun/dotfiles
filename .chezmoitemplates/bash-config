@@ -1,0 +1,42 @@
+{{/*
+bash-config - Bash 配置主体（locale / stty / history / 工具初始化 / 别名）
+同一内容以两个目标路径部署，各发行版默认 bashrc 只会加载其一：
+  ~/.bash_aliases              Debian/Ubuntu 默认 ~/.bashrc 自动加载
+  ~/.bashrc.d/10-dotfiles.sh   Fedora/RHEL 系默认 ~/.bashrc 自动加载
+*/}}
+# shellcheck shell=bash
+# 双重加载防护（自定义 bashrc 可能两个路径都 source）
+[ -n "${__DOTFILES_BASH_LOADED:-}" ] && return
+__DOTFILES_BASH_LOADED=1
+
+# Locale（仅当系统未设置时兜底）
+export LANG="${LANG:-en_US.UTF-8}"
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
+
+# 支持 tmux 使用 Ctrl+s 作为 prefix。
+# 仅在交互式终端中关闭软件流控，跳过 Linux 纯控制台 tty (TERM=linux)。
+if [[ $- == *i* ]] && [[ -t 0 ]] && [[ "${TERM:-}" != "linux" ]] && command -v stty >/dev/null 2>&1; then
+  stty -ixon
+fi
+
+
+# =========================
+# 历史记录（多 session 追加、去重）
+# =========================
+export HISTSIZE=10000
+export HISTFILESIZE=10000
+export HISTCONTROL=ignoreboth:erasedups   # 忽略空格开头/重复，且擦除旧重复
+shopt -s histappend                        # 追加而非覆盖（多 session 不互相覆盖）
+shopt -s cmdhist                           # 多行命令保存为单条历史
+
+
+# =========================
+# 工具初始化（starship / zoxide / fzf 缓存版 + EDITOR + Python alias + PATH）
+# =========================
+{{ template "shell-tools-init" . }}
+
+
+# =========================
+# 终端美化工具别名（共享配置）
+# =========================
+{{ template "shell-aliases" . }}
