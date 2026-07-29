@@ -32,25 +32,39 @@ chezmoi apply -v
 
 注意:`--init` 模式下 `.chezmoitemplates/` 不可用,所以只有 `.chezmoi.yaml.tmpl` 用 init 模式渲染,其余模板必须用普通模式;普通模式渲染依赖 chezmoi.yaml 提供 `.git.user.name` 等数据(CI 里是先 init 渲染再把结果拷到 `~/.config/chezmoi/chezmoi.yaml`)。
 
+本地验证时**不要**把渲染出的 yaml 拷到 `~/.config/chezmoi/chezmoi.yaml`(会覆盖用户真实配置,其 `sourceDir` 可能指向别处),改为渲染到临时目录后用 `--config` 指定:
+
+```bash
+RD=$(mktemp -d)
+chezmoi execute-template --source . --init --promptString "name=CI" --promptString "email=ci@example.com" \
+  < .chezmoi.yaml.tmpl > "$RD/chezmoi.yaml"
+chezmoi execute-template --config "$RD/chezmoi.yaml" --source . -f dot_zshrc.tmpl
+```
+
+另外,`.chezmoiscripts/run_onchange_{linux,windows}_*` 外层有 `{{ if eq .chezmoi.os "..." }}` 包裹,在 macOS 上渲染结果为空。要在本机检查它们,先去掉首尾两行守卫再渲染:`sed '1d;$d' <file> | chezmoi execute-template --config "$RD/chezmoi.yaml" --source .`。CI 的 shellcheck 是**阻断式**的(不再 `|| true`),只跳过空渲染产物。
+
 ## 架构
 
 ### 数据流:tools.yaml 是唯一工具清单源
 
 ```
 .chezmoidata/tools.yaml  (字段: cmd/brew/apt/apt_cmd/dnf/scoop/bucket/special)
-   ├→ .chezmoi.yaml.tmpl        init 时 lookPath 检测,生成 .tools.<cmd> 布尔值(目前无模板消费)
-   └→ .chezmoiscripts/run_onchange_{darwin,windows}_install-packages.*
-                                 遍历清单安装(chezmoi apply 时内容变化才执行)
+   └→ .chezmoiscripts/run_onchange_{darwin,linux,windows}_install-packages.*
+                                 三个平台脚本都遍历清单安装
+                                 (chezmoi apply 时脚本渲染结果变化才执行)
 ```
 
-添加新工具:改 tools.yaml 后 darwin(`brew` 字段)/windows(`scoop` 字段)安装脚本自动遍历;**Linux 安装脚本是手写的,`apt`/`dnf`/`bucket` 字段目前无消费者,新工具需同步手改 linux 脚本**。Ubuntu 命令名不同的工具用 `apt_cmd` 字段(如 bat→batcat、fd→fdfind)。`.chezmoi.yaml.tmpl` 在 init 阶段 `.chezmoidata` 尚未加载,所以它用 `include ".chezmoidata/tools.yaml" | fromYaml` 直接读文件——修改时保持这个模式。
+添加新工具:改 tools.yaml 即可——darwin 用 `brew` 字段、windows 用 `scoop`/`bucket`、linux 用 `apt`/`dnf` 字段;Ubuntu 命令名不同的用 `apt_cmd`(如 bat→batcat、fd→fdfind)。字段留空表示该平台跳过,由安装脚本里的「特殊安装」各节手工处理(如 Ubuntu 的 gh/delta/lsd/glow/ghostty 走官方源或 GitHub release)。Linux 脚本把清单渲染成 heredoc(`<cmd> <apt> <dnf> <apt_cmd>`,空值为 `-`)喂给 `install_pkg` 循环。
 
 ### chezmoi 关键机制
 
 - 命名映射:`dot_zshrc.tmpl` → `~/.zshrc`,`private_dot_config/` → `~/.config/`,`.tmpl` 后缀 = Go 模板。
-- `.chezmoitemplates/` 存放跨 shell 共享片段(`shell-tools-init`、`shell-aliases`),由 `dot_zshrc.tmpl` 和 `dot_bash_aliases.tmpl` 通过 `{{ template "shell-tools-init" . }}` 引用——bash/zsh 共用逻辑改这里,不要在两边重复。
-- `.chezmoiignore` 按平台条件忽略(Windows 跳过 Unix 配置、Linux 默认跳过 zshrc、非 Windows 跳过 Documents/)。**任何仅仓库内有意义的文件(README、CLAUDE.md、scripts/ 等)必须加入 .chezmoiignore,否则 chezmoi apply 会把它部署到 $HOME**。
-- 模板内条件渲染实际使用的是 `.chezmoi.os`(darwin/linux/windows)和 `.git.*`;chezmoi.yaml 里生成的 `.system.*`/`.tools.*` 目前没有任何模板消费。
+- **配置数据 vs 文件模板的求值时机**:`.chezmoi.yaml.tmpl` 只在 `chezmoi init` 时渲染一次并冻结,`dot_*.tmpl` 每次 `apply` 重新渲染。所以「本机是否装了某工具」这类会变化的检测必须写在文件模板里(如 gitconfig 用 `{{ if lookPath "delta" }}`),放进配置数据会永久冻结在首次 init 的状态。`.chezmoi.yaml.tmpl` 现在只产出 `git.user`(gitconfig 消费)+ Windows interpreters。
+- `.chezmoitemplates/` 存放共享片段:`shell-tools-init`、`shell-aliases`(bash/zsh 共用),以及 `bash-config`(bash 配置主体)——共用逻辑改这里,不要在两边重复。
+- **bash 双路径部署**:各发行版默认 `~/.bashrc` 加载的文件不同,所以 `bash-config` 同一份内容部署到两个目标——`~/.bash_aliases`(Debian/Ubuntu)和 `~/.bashrc.d/10-dotfiles.sh`(Fedora/RHEL);内部用 `__DOTFILES_BASH_LOADED` 防双重加载。改 bash 行为只改 `.chezmoitemplates/bash-config`。
+- `.chezmoiignore` 按平台条件忽略(Windows 跳过 Unix 配置、Linux 默认跳过 zshrc/zprofile、非 Windows 跳过 Documents/、非 Linux 跳过 .bashrc.d/)。**任何仅仓库内有意义的文件(README、CLAUDE.md、todos.md、scripts/ 等)必须加入 .chezmoiignore,否则 chezmoi apply 会把它部署到 $HOME**。
+- 模板内条件渲染使用 `.chezmoi.os`(darwin/linux/windows)、`.git.user.*` 和 `lookPath`。
+- `run_onchange_` 脚本只在渲染结果变化时重跑。要让「别的文件变了也重跑」,在脚本里嵌入哈希注释,如 windows 脚本的 `# profile hash: {{ include "..." | sha256sum }}`;linux 脚本因为内联了 tools.yaml 内容,天然随 yaml 变化重跑。
 - git 用户信息在 `chezmoi init` 时通过 `promptChoiceOnce/promptStringOnce` 交互获取并缓存在 chezmoi state;重置:`chezmoi state delete-bucket --bucket=entryState` 后删掉 `~/.config/chezmoi/chezmoi.yaml` 再 init。
 
 ### 跨平台约定

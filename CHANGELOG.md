@@ -5,6 +5,10 @@
 ## [Unreleased]
 
 ### Added
+- `.chezmoitemplates/bash-config` 共享模板：bash 配置主体抽出，同时部署到 `~/.bash_aliases`（Debian/Ubuntu 默认 bashrc 加载）与 `~/.bashrc.d/10-dotfiles.sh`（Fedora/RHEL 默认 bashrc 加载），带 `__DOTFILES_BASH_LOADED` 双重加载防护
+- Windows 安装脚本嵌入 PowerShell profile 的 sha256（profile 内容变更时 run_onchange 重跑，重新同步 Documents 重定向位置）
+- CI 增加仓库内非模板 `.ps1`（Documents/、scripts/）的 PowerShell 解析检查
+- starship 补回 `$cmd_duration` 模块（自定义 format 会关闭默认模块），命令超 2s 显示耗时
 - LICENSE / .editorconfig / .gitattributes / CHANGELOG.md 项目元数据
 - shell-tools-init 跨 shell 共享模板（提取 starship/fzf/zoxide/aliases 等共享逻辑）
 - dot_zprofile.tmpl（macOS 登录 shell 加载 brew shellenv）
@@ -17,7 +21,23 @@
 - CI 加 shellcheck / yamllint / 语法检查 / 配置加载验证
 - tmux TPM 未装时友好提示
 
+### Changed
+- Linux 安装脚本改为遍历 `.chezmoidata/tools.yaml`（`apt`/`dnf`/`apt_cmd` 字段首次真正生效，与 darwin/windows 一致）；yaml 变更即触发脚本重跑；`install_pkg` 增加 alt_command 参数与 `-` 空值哨兵
+- `install_deb_from_release` 版本号改经 `releases/latest` 的 302 重定向获取，避开 GitHub API 匿名限流（60 次/小时）
+- gitconfig 的 delta 检测改为模板内 `lookPath`：配置数据只在 init 时渲染并冻结，文件模板每次 apply 重新求值，首装装完 delta 后再 apply 一次即自愈
+- `.chezmoi.yaml.tmpl` 精简为仅保留模板真正消费的 `git.user`，移除死数据（`tools.*` / `system.*` / `shell.starship.enabled` / `git.delta.*` / 顶层 name+email）；Windows interpreters 加 `-NoProfile -NonInteractive`
+- CI shellcheck 由 `|| true` 改为阻断式（跳过跨平台渲染出的空文件）
+- tools.yaml 中 gh 的 `apt` 字段置空：Ubuntu 统一走 cli/cli 官方源（universe 版本偏旧）
+- zshrc 复用 `.zprofile` 导出的 `HOMEBREW_PREFIX`，避免每次启动派生 brew 子进程
+- 安装脚本第三方脚本的安全提示改为直述校验方法（原 `DOTFILES_VERIFY` 提示与实现不符）
+
 ### Fixed
+- Fedora/RHEL 上 bash 配置完全不生效：其默认 `~/.bashrc` 不加载 `~/.bash_aliases`，改为同时部署 `~/.bashrc.d/10-dotfiles.sh`
+- tmux-resurrect 默认保存键 `prefix + Ctrl-s` 与 `bind C-s send-prefix` 冲突（TPM 在配置末尾运行，插件绑定覆盖了前面的 bind），保存键改为 `prefix + S`
+- compinit 走全量检查分支后 `touch` dump 文件：dump 内容未变时 compinit 不重写文件，导致超过 24h 后每次启动都走慢路径
+- shell-tools-init 中 `__DOTFILES_SHELL=sh` 未加引号被 shellcheck 判为 SC2209
+- tmux `status-left-length` / `status-right-length` 重复设置清理
+- gitconfig `wip` alias 注释与实际行为不符
 - ZSH_AUTOSUGGEST_STRATEGY/HIGHLIGHT_STYLE 配置位置错位（之前在 plugin source 之后，配置实际不生效）
 - LANG/LC_ALL 强制覆盖系统 locale 改为 fallback 模式
 - tmux status-interval 1s → 5s（CPU 唤醒过频）

@@ -24,7 +24,7 @@
 | -------------- | ------------------ | ------------------------------------------------------- | ------------------- |
 | **Ghostty**    | 现代终端模拟器     | `.config/ghostty/config`                                | macOS / Linux       |
 | **Starship**   | 跨 Shell 的提示符  | `.config/starship.toml`                                 | 全平台              |
-| **Bash**       | Shell + 别名       | `.bash_aliases`                                         | Linux               |
+| **Bash**       | Shell + 别名       | `.bash_aliases`(Debian/Ubuntu)<br>`.bashrc.d/10-dotfiles.sh`(Fedora/RHEL) | Linux |
 | **Zsh**        | Shell + 插件       | `.zshrc`                                                | macOS               |
 | **PowerShell** | Shell + PSReadLine | `Documents/PowerShell/Microsoft.PowerShell_profile.ps1` | Windows             |
 | **Tmux**       | 终端复用器         | `.tmux.conf`                                            | macOS / Linux       |
@@ -226,6 +226,7 @@ chezmoi managed
 | `Ctrl+s -`    | 水平分屏         |
 | `Ctrl+s h/j/k/l` | Vim 风格切换面板 |
 | `Ctrl+s Ctrl+s`  | 发送 Ctrl+s (前缀本身) |
+| `Ctrl+s S`    | 保存会话         |
 | `Ctrl+s Ctrl+r`  | 恢复会话      |
 | `Ctrl+s r`    | 重载配置         |
 
@@ -270,6 +271,7 @@ chezmoi managed
 | -------------- | ------------------ | ------------------- | ------------------ | ------------------ |
 | 终端           | Ghostty            | Ghostty (COPR)      | Ghostty (脚本)     | Windows Terminal   |
 | Shell          | Zsh                | Bash                | Bash               | PowerShell 7       |
+| Shell 配置入口 | `.zshrc`           | `.bashrc.d/10-dotfiles.sh` | `.bash_aliases` | PowerShell profile |
 | 包管理器       | Homebrew           | dnf                 | apt                | Scoop              |
 | 剪贴板         | pbcopy             | wl-copy (Wayland)   | xclip/wl-copy      | 系统内置           |
 | bat 命令       | `bat`              | `bat`               | `batcat`           | `bat`              |
@@ -381,11 +383,12 @@ git config --global user.email "your-email@example.com"
 
 ### 在 Linux 上使用 Zsh
 
-编辑 `.chezmoiignore`，注释掉：
+编辑 `.chezmoiignore`，注释掉 Linux 段里的 `.zshrc` / `.zprofile`：
 
 ```yaml
 # {{ if eq .chezmoi.os "linux" }}
 # .zshrc
+# .zprofile
 # {{ end }}
 ```
 
