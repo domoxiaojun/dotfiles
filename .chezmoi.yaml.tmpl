@@ -44,54 +44,14 @@ sourceDir: {{ .chezmoi.sourceDir | quote }}
 interpreters:
   ps1:
     command: {{ if lookPath "pwsh" }}pwsh{{ else }}powershell{{ end }}
-    args: ["-NoLogo", "-NonInteractive"]
+    args: ["-NoLogo", "-NoProfile", "-NonInteractive"]
 {{ end -}}
 
+# 数据只保留模板真正消费的 git.user（gitconfig 模板使用）。
+# 工具是否安装的检测不放在这里：config 数据仅在 init 时渲染一次，会被冻结；
+# 需要按机器现状分支的模板，直接在文件模板内用 lookPath（每次 apply 重新求值）。
 data:
-  name: {{ $name | quote }}
-  email: {{ $email | quote }}
-
-  # Git 配置
   git:
     user:
       name: {{ $name | quote }}
       email: {{ $email | quote }}
-    delta:
-      enabled: {{ if lookPath "delta" }}true{{ else }}false{{ end }}
-      side_by_side: true
-
-  # Shell 配置
-  shell:
-    starship:
-      enabled: {{ if lookPath "starship" }}true{{ else }}false{{ end }}
-
-  # 工具配置（遍历 .chezmoidata/tools.yaml 自动检测，添加新工具时改 yaml 即可）
-  # 注意：.chezmoi.yaml.tmpl 在 init 阶段渲染，此时 .chezmoidata 尚未加载，
-  # 所以这里用 include + fromYaml 直接读取（chezmoi 文档推荐做法）。
-  tools:
-{{- $tools := include ".chezmoidata/tools.yaml" | fromYaml }}
-{{- range $tools.toolList }}
-{{-   if .cmd }}
-{{-     $altCmd := index . "apt_cmd" | default "" }}
-    {{ .cmd }}: {{ if or (lookPath .cmd) (and (ne $altCmd "") (lookPath $altCmd)) }}true{{ else }}false{{ end }}
-{{-   end }}
-{{- end }}
-
-  # 系统信息 (用于跨平台模板)
-  system:
-    os: {{ .chezmoi.os | quote }}
-{{- if and (eq .chezmoi.os "linux") (hasKey .chezmoi "osRelease") }}
-    distro: {{ .chezmoi.osRelease.id | default "unknown" | quote }}
-    distro_version: {{ .chezmoi.osRelease.versionID | default "" | quote }}
-    is_fedora: {{ if eq (.chezmoi.osRelease.id | default "") "fedora" }}true{{ else }}false{{ end }}
-    is_ubuntu: {{ if eq (.chezmoi.osRelease.id | default "") "ubuntu" }}true{{ else }}false{{ end }}
-    is_debian: {{ if eq (.chezmoi.osRelease.id | default "") "debian" }}true{{ else }}false{{ end }}
-    is_wayland: {{ if env "WAYLAND_DISPLAY" }}true{{ else }}false{{ end }}
-{{- else }}
-    distro: ""
-    distro_version: ""
-    is_fedora: false
-    is_ubuntu: false
-    is_debian: false
-    is_wayland: false
-{{- end }}
