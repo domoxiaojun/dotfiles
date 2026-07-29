@@ -5,6 +5,13 @@
 ## [Unreleased]
 
 ### Added
+- fzf 体验：Catppuccin Mocha 配色、Ctrl+T 用 bat 预览文件 / Alt+C 用 lsd 树状预览目录、Ctrl+R 长命令可展开；后端优先用 fd（尊重 `.gitignore`，比 find 快），并兼容 Ubuntu 的 fdfind / batcat 命令名
+- bat 配置 `.config/bat/config`：模板在 apply 时探测本机 bat 是否内置 Catppuccin（bat ≥ 0.25）再决定是否写入 `--theme`，旧版 bat 上不会每次 cat 都打印 "Unknown theme" 警告
+- btop 配置与 Catppuccin Mocha 主题：btop 内置主题不含 Catppuccin，主题文件随仓库部署；`btop.conf` 用 chezmoi 的 `create_` 前缀（btop 退出会回写完整配置，持续管理会让 `chezmoi diff` 永远有差异）
+- delta 显式指定 `syntax-theme = "Catppuccin Mocha"`，git diff 配色与 bat 统一
+- zsh 补全增强：大小写不敏感与中划线/下划线互通、方向键菜单选择、候选项按 LS_COLORS 上色（macOS 无 dircolors，补了兜底配色否则该项静默失效）、分组标题、补全结果缓存
+- zsh 目录栈：`AUTO_CD` / `AUTO_PUSHD` + `d` 别名（`dirs -v`），配合 `cd -<数字>` 快速跳回
+- bash 交互增强：`HISTTIMEFORMAT` 历史时间戳（对齐 zsh 的 EXTENDED_HISTORY）、`checkwinsize` / `globstar` / `autocd` / `cdspell`
 - `.chezmoitemplates/bash-config` 共享模板：bash 配置主体抽出，同时部署到 `~/.bash_aliases`（Debian/Ubuntu 默认 bashrc 加载）与 `~/.bashrc.d/10-dotfiles.sh`（Fedora/RHEL 默认 bashrc 加载），带 `__DOTFILES_BASH_LOADED` 双重加载防护
 - Windows 安装脚本嵌入 PowerShell profile 的 sha256（profile 内容变更时 run_onchange 重跑，重新同步 Documents 重定向位置）
 - CI 增加仓库内非模板 `.ps1`（Documents/、scripts/）的 PowerShell 解析检查

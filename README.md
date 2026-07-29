@@ -29,6 +29,8 @@
 | **PowerShell** | Shell + PSReadLine | `Documents/PowerShell/Microsoft.PowerShell_profile.ps1` | Windows             |
 | **Tmux**       | 终端复用器         | `.tmux.conf`                                            | macOS / Linux       |
 | **Git**        | 版本控制 + delta   | `.gitconfig`                                            | 全平台              |
+| **bat**        | 语法高亮 cat       | `.config/bat/config`                                    | macOS / Linux       |
+| **btop**       | 系统监控           | `.config/btop/btop.conf`                                | macOS / Linux       |
 
 ### 美化工具
 
@@ -47,9 +49,12 @@
 
 ### Shell 增强
 
-- `fzf` 集成 - **Ctrl+R**（历史搜索）/ **Ctrl+T**（文件搜索）/ **Alt+C**（目录跳转）
+- `fzf` 集成 - **Ctrl+R**（历史搜索）/ **Ctrl+T**（文件搜索，带 bat 预览）/ **Alt+C**（目录跳转，带 lsd 树状预览）
+  - 配色为 Catppuccin Mocha，后端优先用 `fd`（尊重 `.gitignore`，比 `find` 快）
 - `zsh-syntax-highlighting` - 命令语法高亮
 - `zsh-autosuggestions` - 智能命令补全提示
+- zsh 补全增强 - 大小写不敏感（`Desk<Tab>` → `Desktop`）、方向键菜单选择、候选项上色
+- 目录栈 - `AUTO_PUSHD` + `d` 查看历史目录，`cd -<数字>` 快速跳回
 
 ### Tmux 插件
 
@@ -264,6 +269,11 @@ chezmoi managed
 - 主题: Catppuccin Mocha
 - 圆角窗口标签
 - 状态栏显示 CPU、会话名、运行时间
+
+**统一配色**: Ghostty / tmux / fzf / bat / delta / btop 均为 Catppuccin Mocha。
+其中 bat 的 Catppuccin 是 bat ≥ 0.25 内置的主题,`.config/bat/config` 由模板在
+`chezmoi apply` 时探测本机 bat 是否支持后再写入(旧版 bat 不会留下 "Unknown theme" 警告);
+btop 内置主题不含 Catppuccin,主题文件随本仓库部署到 `.config/btop/themes/`。
 
 ## 平台差异
 

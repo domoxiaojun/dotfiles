@@ -65,7 +65,13 @@ chezmoi execute-template --config "$RD/chezmoi.yaml" --source . -f dot_zshrc.tmp
 - `.chezmoiignore` 按平台条件忽略(Windows 跳过 Unix 配置、Linux 默认跳过 zshrc/zprofile、非 Windows 跳过 Documents/、非 Linux 跳过 .bashrc.d/)。**任何仅仓库内有意义的文件(README、CLAUDE.md、todos.md、scripts/ 等)必须加入 .chezmoiignore,否则 chezmoi apply 会把它部署到 $HOME**。
 - 模板内条件渲染使用 `.chezmoi.os`(darwin/linux/windows)、`.git.user.*` 和 `lookPath`。
 - `run_onchange_` 脚本只在渲染结果变化时重跑。要让「别的文件变了也重跑」,在脚本里嵌入哈希注释,如 windows 脚本的 `# profile hash: {{ include "..." | sha256sum }}`;linux 脚本因为内联了 tools.yaml 内容,天然随 yaml 变化重跑。
+- **`create_` 前缀**用于「首次创建后就不再覆盖」的文件,`private_dot_config/btop/create_btop.conf` → `~/.config/btop/btop.conf`。btop 退出时会把完整配置回写该文件,普通管理会让 `chezmoi diff` 永远有差异。
+- 需要按本机工具**能力**(而不只是有没有装)分支时,用 `output` 在模板里探测,例:`private_dot_config/bat/config.tmpl` 用 `output $bat "--list-themes"` 判断该版本 bat 是否内置 Catppuccin 主题(bat ≥ 0.25 才有),旧版就不写 `--theme`,避免每次 `cat` 都打印警告。注意 `output` 的命令返回非零会中断整个 apply,只对稳定命令使用。
 - git 用户信息在 `chezmoi init` 时通过 `promptChoiceOnce/promptStringOnce` 交互获取并缓存在 chezmoi state;重置:`chezmoi state delete-bucket --bucket=entryState` 后删掉 `~/.config/chezmoi/chezmoi.yaml` 再 init。
+
+### 主题一致性
+
+全套配色是 Catppuccin Mocha,分布在:ghostty(`theme =`)、tmux(catppuccin 插件)、fzf(`FZF_DEFAULT_OPTS` 里的 `--color`,在 `.chezmoitemplates/shell-tools-init`)、bat(`.config/bat/config`)、delta(gitconfig 的 `syntax-theme`,复用 bat 的主题资源)、btop(`.config/btop/themes/`,内置主题不含 Catppuccin 故随仓库部署)、starship。改配色需要同步这几处。
 
 ### 跨平台约定
 
