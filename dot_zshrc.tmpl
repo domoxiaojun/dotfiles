@@ -146,4 +146,25 @@ fi
 if [ -n "$BREW_PREFIX" ]; then
   export PIPX_DEFAULT_PYTHON=${BREW_PREFIX}/bin/python3
 fi
-{{ end -}}
+
+# =========================
+# Bitwarden SSH Agent（App Store 版优先，DMG 版备用）
+# 需在 Bitwarden 桌面端 Settings 中开启 SSH agent
+# 未开启/未安装时不设置 SSH_AUTH_SOCK，回落到系统默认 agent
+# =========================
+_bw_sock_appstore="$HOME/Library/Containers/com.bitwarden.desktop/Data/.bitwarden-ssh-agent.sock"
+_bw_sock_dmg="$HOME/.bitwarden-ssh-agent.sock"
+if [[ -S "$_bw_sock_appstore" ]]; then
+  export SSH_AUTH_SOCK="$_bw_sock_appstore"
+elif [[ -S "$_bw_sock_dmg" ]]; then
+  export SSH_AUTH_SOCK="$_bw_sock_dmg"
+fi
+unset _bw_sock_appstore _bw_sock_dmg
+{{ end }}
+
+# =========================
+# 本机专属配置（不纳入 chezmoi）
+# 各类安装器（openclaw / grok / otty 等）会往 ~/.zshrc 追加内容，
+# 那些内容会被 chezmoi apply 覆盖；放到下面这个文件里则不受影响。
+# =========================
+[ -f "$HOME/.zshrc.local" ] && { source "$HOME/.zshrc.local" 2>/dev/null || true; }
