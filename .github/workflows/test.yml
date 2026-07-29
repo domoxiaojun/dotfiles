@@ -95,6 +95,22 @@ jobs:
             Write-Host "[OK] $($_.Name)"
           }
 
+      - name: Syntax check repo PowerShell sources (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # 仓库内非模板 .ps1（PowerShell profile、辅助脚本）不经渲染步骤，单独解析检查
+          $files = Get-ChildItem -Path Documents, scripts -Recurse -Filter *.ps1 -ErrorAction SilentlyContinue
+          foreach ($f in $files) {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($f.FullName, [ref]$null, [ref]$errors)
+            if ($errors.Count -gt 0) {
+              Write-Error "Parse error in $($f.FullName): $($errors -join ', ')"
+              exit 1
+            }
+            Write-Host "[OK] $($f.FullName)"
+          }
+
   # ============================================================
   # Job 2: shellcheck 静态检查
   # ============================================================
@@ -120,11 +136,16 @@ jobs:
             chezmoi execute-template --source . -f "$f" \
               > "/tmp/rendered/$(basename "${f%.tmpl}")"
           done
-          # shellcheck（容错：dotfiles 脚本常用 sudo / source 等动态特性，部分警告可忽略）
-          # SC1090/1091: source 动态路径；SC2155: declare 同时赋值；SC2034: 未使用变量（chezmoi 注入的可能用）
+          # shellcheck 阻断模式：发现 warning 及以上问题即失败
+          # 排除项说明——SC1090/1091: source 动态路径；SC2155: local 同时赋值；SC2034: 未使用变量（chezmoi 注入的可能用）
+          status=0
           for f in /tmp/rendered/*.sh; do
-            [ -f "$f" ] && shellcheck -e SC1090,SC1091,SC2155,SC2034 -S warning "$f" || true
+            # 跳过空文件（darwin 脚本在 linux 上渲染为空，属预期）
+            [ -s "$f" ] || continue
+            echo "shellcheck: $f"
+            shellcheck -e SC1090,SC1091,SC2155,SC2034 -S warning "$f" || status=1
           done
+          exit $status
 
   # ============================================================
   # Job 3: yamllint 检查 yaml 格式

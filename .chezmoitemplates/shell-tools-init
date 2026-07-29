@@ -9,13 +9,13 @@ shell-tools-init - bash/zsh 共享的工具初始化逻辑
 - PATH 注入
 */}}
 
-# 检测当前 shell
+# 检测当前 shell（值加引号：裸 sh/bash 会被 shellcheck 误判为命令替换 SC2209）
 if [ -n "${ZSH_VERSION:-}" ]; then
-    __DOTFILES_SHELL=zsh
+    __DOTFILES_SHELL="zsh"
 elif [ -n "${BASH_VERSION:-}" ]; then
-    __DOTFILES_SHELL=bash
+    __DOTFILES_SHELL="bash"
 else
-    __DOTFILES_SHELL=sh
+    __DOTFILES_SHELL="sh"
 fi
 
 # =========================
