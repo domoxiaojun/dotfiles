@@ -26,19 +26,24 @@ window-inherit-working-directory = true
 cursor-style = block
 cursor-style-blink = true
 cursor-color = #7aa2f7
-shell-integration-features = no-cursor
+# ssh-env/ssh-terminfo: ssh 到远端时自动传递终端环境并安装 terminfo，
+# 否则远端会因不认识 xterm-ghostty 而出现颜色/按键异常
+shell-integration-features = no-cursor,ssh-env,ssh-terminfo
 
 # --- 鼠标与交互 ---
 mouse-hide-while-typing = true
-# 复制时去除末尾换行
+# 选中即复制
 copy-on-select = true
+# 复制时去掉行尾空白
 clipboard-trim-trailing-spaces = true
 
 # --- 终端类型（支持 tmux 24-bit 颜色）---
 term = xterm-256color
 
 # --- 性能优化 ---
-scrollback-limit = 10000
+# 注意单位是「字节」不是行数（ghostty 默认 10000000 = 10MB）。
+# 原先写的 10000 只有 10KB，回滚缓冲几乎等于没有；这里给到 1GB。
+scrollback-limit = 1000000000
 
 # ========================================
 # 快捷键配置
