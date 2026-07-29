@@ -5,6 +5,10 @@
 ## [Unreleased]
 
 ### Added
+- `chezmoi-check` 工具（部署到 `~/.local/bin/`）：检测被本地手改、`chezmoi apply` 会静默覆盖的文件，识别安装器自动追加的块，并支持一键搬进 `~/.zshrc.local`；同时检查 `.zshrc.local` 中失效的 `source` 路径。无 TTY 时降级为只报告，退出码 0/1 便于脚本判断
+- `~/.zshrc.local` 钩子：`.zshrc` 末尾加载该文件，不纳入 chezmoi 管理，供安装器追加的内容长期存放
+- Bitwarden SSH agent 配置收进 `dot_zshrc.tmpl` 的 macOS 段（此前只在本机 `~/.zshrc` 里，apply 会覆盖导致 `SSH_AUTH_SOCK` 丢失）
+- CI 的 shellcheck 覆盖 `private_dot_local/bin/` 下的纯 shell 脚本（此前只检查 `*.sh.tmpl` 渲染结果）
 - fzf 体验：Catppuccin Mocha 配色、Ctrl+T 用 bat 预览文件 / Alt+C 用 lsd 树状预览目录、Ctrl+R 长命令可展开；后端优先用 fd（尊重 `.gitignore`，比 find 快），并兼容 Ubuntu 的 fdfind / batcat 命令名
 - bat 配置 `.config/bat/config`：模板在 apply 时探测本机 bat 是否内置 Catppuccin（bat ≥ 0.25）再决定是否写入 `--theme`，旧版 bat 上不会每次 cat 都打印 "Unknown theme" 警告
 - btop 配置与 Catppuccin Mocha 主题：btop 内置主题不含 Catppuccin，主题文件随仓库部署；`btop.conf` 用 chezmoi 的 `create_` 前缀（btop 退出会回写完整配置，持续管理会让 `chezmoi diff` 永远有差异）
@@ -39,6 +43,9 @@
 - 安装脚本第三方脚本的安全提示改为直述校验方法（原 `DOTFILES_VERIFY` 提示与实现不符）
 
 ### Fixed
+- ghostty `scrollback-limit` 10000 → 1000000000：该项单位是**字节**不是行数（ghostty 默认 10000000 = 10MB），原值 10KB 形同没有回滚缓冲
+- ghostty `shell-integration-features` 补 `ssh-env,ssh-terminfo`：ssh 到远端时传递终端环境并安装 terminfo，避免远端不认识 `xterm-ghostty`
+- ghostty 配置里 `copy-on-select` 的注释错位（原注释描述的是下一行的 `clipboard-trim-trailing-spaces`）
 - Fedora/RHEL 上 bash 配置完全不生效：其默认 `~/.bashrc` 不加载 `~/.bash_aliases`，改为同时部署 `~/.bashrc.d/10-dotfiles.sh`
 - tmux-resurrect 默认保存键 `prefix + Ctrl-s` 与 `bind C-s send-prefix` 冲突（TPM 在配置末尾运行，插件绑定覆盖了前面的 bind），保存键改为 `prefix + S`
 - compinit 走全量检查分支后 `touch` dump 文件：dump 内容未变时 compinit 不重写文件，导致超过 24h 后每次启动都走慢路径

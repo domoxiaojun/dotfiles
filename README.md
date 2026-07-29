@@ -290,6 +290,33 @@ btop 内置主题不含 Catppuccin,主题文件随本仓库部署到 `.config/bt
 
 ## 故障排除
 
+### chezmoi 覆盖了安装器写进 .zshrc 的东西
+
+各类安装器（nvm、conda、以及各种 CLI 的补全）会自行往 `~/.zshrc` 追加内容。
+`.zshrc` 由 chezmoi 管理，下次 `chezmoi apply` 会把这些追加**静默覆盖**掉。
+
+本仓库的 `~/.zshrc` 末尾有一个钩子会加载 `~/.zshrc.local`，该文件不纳入 chezmoi，
+把安装器追加的内容搬进去即可长期保留。
+
+搬运有个现成的工具：
+
+```bash
+chezmoi-check
+```
+
+它会：
+
+1. 列出所有被本地改过、`chezmoi apply` 会覆盖的文件（基于 `chezmoi status` 第一列）
+2. 把「本地比仓库多出来的行」原样打印，并标出哪些像是安装器自动追加的
+3. 逐个询问：搬到 `.zshrc.local` / 收编进仓库（`chezmoi add`）/ 看完整 diff / 跳过
+4. 顺带检查 `~/.zshrc.local` 里有没有失效的 `source` 路径（工具卸载后残留会导致每次开终端报错）
+
+无差异时退出码 0，有待处理差异时退出码 1，可用于脚本判断。
+在没有终端的环境（CI、hook）里会自动降级为只报告不询问。
+
+> 没有把它挂成 chezmoi 的 `hooks.apply.pre` 自动执行，因为该工具内部会调用
+> `chezmoi apply` 恢复文件，挂上去会造成递归调用。需要的话请手动运行。
+
 ### Ghostty 图标不显示
 
 确保安装了 Nerd Font：

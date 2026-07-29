@@ -73,6 +73,16 @@ chezmoi execute-template --config "$RD/chezmoi.yaml" --source . -f dot_zshrc.tmp
 
 全套配色是 Catppuccin Mocha,分布在:ghostty(`theme =`)、tmux(catppuccin 插件)、fzf(`FZF_DEFAULT_OPTS` 里的 `--color`,在 `.chezmoitemplates/shell-tools-init`)、bat(`.config/bat/config`)、delta(gitconfig 的 `syntax-theme`,复用 bat 的主题资源)、btop(`.config/btop/themes/`,内置主题不含 Catppuccin 故随仓库部署)、starship。改配色需要同步这几处。
 
+### 本地手改与 chezmoi 的边界
+
+安装器(nvm/conda/各类 CLI 补全)会自行往 `~/.zshrc` 追加内容,而 `.zshrc` 受 chezmoi 管理,下次 apply 会静默覆盖。处理约定:
+
+- `~/.zshrc` 末尾有钩子加载 `~/.zshrc.local`,后者**不纳入 chezmoi**,是这类内容的归宿。
+- `private_dot_local/bin/executable_chezmoi-check` → `~/.local/bin/chezmoi-check` 负责发现和搬运:基于 `chezmoi status` 第一列(非空=本地改过)+ `chezmoi cat` 与实际文件的 diff 取「多出来的行」。
+- 该脚本**没有**挂成 `hooks.apply.pre`,因为它内部会调用 `chezmoi apply` 恢复文件,挂上去会递归。要改成自动执行必须先加环境变量守卫。
+- 脚本末尾用 `[ "${BASH_SOURCE[0]:-$0}" = "$0" ]` 守卫,可被 source 后替换 `ask`/`chezmoi` 做隔离测试(见 CHANGELOG 对应条目的做法:临时 HOME + 桩函数,不碰真实文件)。
+- 写这类脚本注意 **macOS 是 BSD sed/grep,不支持 `\s`**,一律用 `[[:space:]]`。
+
 ### 跨平台约定
 
 - 换行符由 `.gitattributes` 强制:全仓库 LF,仅 `*.ps1/*.psm1/*.psd1/*.bat/*.cmd` 用 CRLF。PowerShell 相关改动不要破坏这一点。
