@@ -1,0 +1,25 @@
+{{/*
+bat 配置
+主题按本机 bat 实际支持情况渲染：Catppuccin 从 bat 0.25 起内置，
+Ubuntu/Debian 仓库里的 bat 往往更旧（22.04=0.19、24.04=0.24），
+硬写 --theme 会让每次 cat 都打印一行 "Unknown theme" 警告，故先探测再写。
+*/ -}}
+{{- $bat := "" -}}
+{{- if lookPath "bat" }}{{ $bat = "bat" }}{{ else if lookPath "batcat" }}{{ $bat = "batcat" }}{{ end -}}
+# bat 配置
+# 查看生效路径: bat --config-file
+{{ if $bat -}}
+{{- if contains "Catppuccin Mocha" (output $bat "--list-themes") }}
+# Catppuccin Mocha（bat 内置，与 Ghostty / tmux / fzf 主题统一）
+--theme="Catppuccin Mocha"
+{{- else }}
+# 当前 bat 版本未内置 Catppuccin 主题（需 bat >= 0.25），沿用默认主题。
+# 升级 bat 后重新 chezmoi apply 即会自动写入 --theme。
+{{- end }}
+{{- else }}
+# 渲染时未检测到 bat，装好后重新 chezmoi apply 会自动补上主题设置。
+{{- end }}
+
+# 直接调用 bat 时的样式：行号 + git 变更标记 + 文件头
+# 注：shell 别名里的 cat / catt 用命令行参数覆盖了本项
+--style="numbers,changes,header"

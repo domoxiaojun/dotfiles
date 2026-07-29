@@ -46,6 +46,9 @@
 	light = false
 	side-by-side = true
 	line-numbers = true
+	# delta 的语法主题复用 bat 的资源；Catppuccin 自 bat 0.25 起内置，
+	# 旧版 bat 上会回退到默认主题（仅影响配色，不影响 diff 功能）
+	syntax-theme = "Catppuccin Mocha"
 {{- end }}
 
 [merge]
