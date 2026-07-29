@@ -26,8 +26,18 @@ fi
 export HISTSIZE=10000
 export HISTFILESIZE=10000
 export HISTCONTROL=ignoreboth:erasedups   # 忽略空格开头/重复，且擦除旧重复
+export HISTTIMEFORMAT="%F %T "             # 历史带时间戳（对齐 zsh 的 EXTENDED_HISTORY）
 shopt -s histappend                        # 追加而非覆盖（多 session 不互相覆盖）
 shopt -s cmdhist                           # 多行命令保存为单条历史
+
+
+# =========================
+# 交互体验
+# =========================
+shopt -s checkwinsize                      # 窗口大小变化后更新 LINES/COLUMNS，避免换行错乱
+shopt -s globstar 2>/dev/null || true      # ** 递归匹配（bash 4+）
+shopt -s autocd 2>/dev/null || true        # 直接输入目录名即可 cd（bash 4+）
+shopt -s cdspell 2>/dev/null || true       # cd 目录名轻微拼写错误自动纠正
 
 
 # =========================

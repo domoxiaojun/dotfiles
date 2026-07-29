@@ -72,6 +72,35 @@ fi
 
 
 # =========================
+# 补全样式（默认补全很朴素，这几行是体验提升最大的地方）
+# =========================
+# 大小写不敏感 + 中划线/下划线互通：ls Desk<Tab> 能补出 Desktop
+zstyle ':completion:*' matcher-list 'm:{a-zA-Z-_}={A-Za-z_-}' 'r:|=*' 'l:|=* r:|=*'
+# 候选项用方向键选择，而不是只打印一堆文字
+zstyle ':completion:*' menu select
+# 候选项按 LS_COLORS 上色
+# macOS 没有 dircolors，LS_COLORS 默认为空会让上色静默失效，故先兜底一个配色
+export LS_COLORS="${LS_COLORS:-di=1;34:ln=1;36:so=1;35:pi=1;33:ex=1;32:bd=1;33:cd=1;33:su=1;31:sg=1;31:tw=1;34:ow=1;34}"
+zstyle ':completion:*' list-colors "${(s.:.)LS_COLORS}"
+# 分组显示并加标题，区分「文件」「命令」「参数」
+zstyle ':completion:*' group-name ''
+zstyle ':completion:*:descriptions' format '%F{cyan}-- %d --%f'
+# 补全结果缓存，加速 brew/apt 这类候选极多的命令
+zstyle ':completion:*' use-cache on
+zstyle ':completion:*' cache-path "${ZDOTDIR:-$HOME}/.zcompcache"
+
+
+# =========================
+# 目录导航
+# =========================
+setopt AUTO_CD              # 直接输入目录名即可 cd
+setopt AUTO_PUSHD           # cd 时自动把旧目录压入目录栈
+setopt PUSHD_IGNORE_DUPS    # 目录栈去重
+setopt PUSHD_SILENT         # cd 时不打印目录栈
+alias d='dirs -v'           # 查看目录栈，配合 cd -<数字> 快速跳回
+
+
+# =========================
 # zsh plugins
 # =========================
 {{ if eq .chezmoi.os "darwin" -}}
