@@ -25,6 +25,8 @@ todos.md
 # bat 在 Windows 读 %APPDATA%\bat，btop 亦非 ~/.config 布局
 .config/bat/
 .config/btop/
+# chezmoi-check 是 bash 脚本，~/.local/bin 在 Windows 上也不在 PATH
+.local/bin/chezmoi-check
 {{ end }}
 
 # Documents 目录仅 Windows 需要 (PowerShell profile)

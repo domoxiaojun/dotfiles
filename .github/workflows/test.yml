@@ -145,6 +145,12 @@ jobs:
             echo "shellcheck: $f"
             shellcheck -e SC1090,SC1091,SC2155,SC2034 -S warning "$f" || status=1
           done
+          # 仓库内的纯 shell 脚本（不经模板渲染，如部署到 ~/.local/bin 的工具）
+          for f in private_dot_local/bin/*; do
+            [ -f "$f" ] || continue
+            echo "shellcheck: $f"
+            shellcheck -e SC1090,SC1091,SC2155,SC2034 -S warning "$f" || status=1
+          done
           exit $status
 
   # ============================================================

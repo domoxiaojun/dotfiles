@@ -1,0 +1,242 @@
+#!/usr/bin/env bash
+# chezmoi-check - 检查本地手改，避免 chezmoi apply 静默覆盖
+# version: 1.0.0  - 初版
+#
+# 解决的问题：
+#   各类安装器（openclaw / grok / otty / nvm / conda ...）会自行往 ~/.zshrc 追加内容。
+#   这些文件由 chezmoi 管理，下次 apply 会把追加的内容直接覆盖掉，且不留痕迹。
+#
+# chezmoi 自身已有的能力（本脚本直接调用，不重复实现）：
+#   chezmoi status  第一列非空 = 该文件自上次 apply 后被本地改过
+#   chezmoi cat     打印「目标状态」的内容，与实际文件 diff 即得本地多出的部分
+#   chezmoi add     把本地改动反向收编进源仓库
+#   chezmoi diff    查看差异
+#
+# 本脚本补的是 chezmoi 没有的三件事：
+#   1. 认出「安装器追加块」——chezmoi 只知道文件变了，不知道变的是什么性质
+#   2. 一键把这些块搬进 ~/.zshrc.local——chezmoi 只能收编或丢弃，没有「移出管理范围」
+#   3. 非 TTY 时降级为只报告，可挂进 hooks.apply.pre 或 CI 而不会卡死
+#
+# 退出码：0 = 没有需要处理的差异；1 = 存在待处理差异；2 = 运行环境有问题
+
+set -uo pipefail
+
+ZSHRC="$HOME/.zshrc"
+ZSHRC_LOCAL="$HOME/.zshrc.local"
+
+# 交互能力：能读到 /dev/tty 才询问，否则只报告（供 hook / CI 调用）
+if [ -r /dev/tty ] && [ -t 1 ]; then
+    INTERACTIVE=1
+else
+    INTERACTIVE=0
+fi
+
+# 颜色仅在终端输出时启用
+if [ -t 1 ]; then
+    C_RED=$'\033[31m'; C_GREEN=$'\033[32m'; C_YELLOW=$'\033[33m'
+    C_CYAN=$'\033[36m'; C_BOLD=$'\033[1m'; C_OFF=$'\033[0m'
+else
+    C_RED=""; C_GREEN=""; C_YELLOW=""; C_CYAN=""; C_BOLD=""; C_OFF=""
+fi
+
+FOUND=0
+
+die() { echo "${C_RED}错误：$*${C_OFF}" >&2; exit 2; }
+
+command -v chezmoi > /dev/null 2>&1 || die "未找到 chezmoi"
+
+# 安装器追加块的常见特征
+INSTALLER_PAT='>>>|<<<|Added by|installer|Completion|shell integration|initialize|# managed by'
+
+# ------------------------------------------------------------
+# 取「实际文件相对 chezmoi 目标状态多出来的行」
+# 用法: extra_lines <绝对路径>
+# ------------------------------------------------------------
+extra_lines() {
+    local f="$1"
+    # diff 普通格式里 "> " 开头即第二个文件（实际文件）独有的行
+    diff <(chezmoi cat "$f" 2>/dev/null) "$f" 2>/dev/null \
+        | grep '^> ' | sed 's/^> //'
+}
+
+# ------------------------------------------------------------
+# 询问一个问题，返回用户输入（非交互时返回空）
+# 用法: ask <提示语>
+# ------------------------------------------------------------
+ask() {
+    local prompt="$1" ans=""
+    [ "$INTERACTIVE" -eq 1 ] || return 1
+    printf '%s' "$prompt" > /dev/tty
+    read -r ans < /dev/tty || return 1
+    printf '%s' "$ans"
+}
+
+# ------------------------------------------------------------
+# 检测 A/B：被本地改过的受管文件
+# ------------------------------------------------------------
+check_modified() {
+    local line status path abs extra n_extra hint ans
+
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        status="${line:0:2}"
+        path="${line:3}"
+
+        # 第一列非空才表示「本地被手改」；第一列为空只是仓库更新了
+        [ "${status:0:1}" != " " ] || continue
+        # 脚本条目（R）不是文件，跳过
+        case "$path" in .chezmoiscripts/*) continue ;; esac
+
+        abs="$HOME/$path"
+        [ -f "$abs" ] || continue
+
+        extra="$(extra_lines "$abs")"
+        n_extra="$(printf '%s' "$extra" | grep -c . || true)"
+
+        FOUND=1
+        echo ""
+        echo "${C_BOLD}${C_YELLOW}● $path${C_OFF} 被本地修改过，chezmoi apply 会覆盖它"
+
+        if [ "$n_extra" -gt 0 ]; then
+            hint=""
+            if printf '%s' "$extra" | grep -qE "$INSTALLER_PAT"; then
+                hint=" ${C_CYAN}(像是安装器自动追加的)${C_OFF}"
+            fi
+            echo "  本地比仓库多出 ${n_extra} 行${hint}："
+            printf '%s\n' "$extra" | sed 's/^/    /' | head -20
+            [ "$n_extra" -gt 20 ] && echo "    ... 其余 $((n_extra - 20)) 行省略"
+        else
+            echo "  差异不是单纯追加，用 chezmoi diff 查看完整变化"
+        fi
+
+        [ "$INTERACTIVE" -eq 1 ] || continue
+
+        # 只有 .zshrc 有 .zshrc.local 钩子，才提供「搬走」选项
+        if [ "$abs" = "$ZSHRC" ] && [ "$n_extra" -gt 0 ]; then
+            ans="$(ask "  处理方式 [m]搬到 .zshrc.local / [a]收编进仓库 / [d]看完整diff / [s]跳过 (默认 s): ")"
+        else
+            ans="$(ask "  处理方式 [a]收编进仓库 / [d]看完整diff / [s]跳过 (默认 s): ")"
+        fi
+
+        case "${ans:-s}" in
+            m|M) move_to_local "$extra" ;;
+            a|A)
+                if chezmoi add "$abs"; then
+                    echo "  ${C_GREEN}✓ 已收编进源仓库，记得去仓库里 git commit${C_OFF}"
+                else
+                    echo "  ${C_RED}✗ chezmoi add 失败${C_OFF}"
+                fi
+                ;;
+            d|D) chezmoi diff "$abs" ;;
+            *)   echo "  已跳过（下次 apply 仍会覆盖）" ;;
+        esac
+    done < <(chezmoi status 2>/dev/null)
+}
+
+# ------------------------------------------------------------
+# 把追加块搬进 ~/.zshrc.local，然后把 ~/.zshrc 恢复成仓库状态
+# ------------------------------------------------------------
+move_to_local() {
+    local extra="$1" ans backup
+
+    echo ""
+    echo "  将把上面 $(printf '%s' "$extra" | grep -c . || true) 行追加到 ${ZSHRC_LOCAL}，"
+    echo "  然后把 ${ZSHRC} 恢复成仓库版本（恢复前会自动备份）。"
+    ans="$(ask "  确认执行? [y/N]: ")"
+    case "${ans:-n}" in
+        y|Y) ;;
+        *) echo "  已取消"; return 0 ;;
+    esac
+
+    # 恢复是覆盖操作，先留一份带时间戳的备份，出问题可原样拷回
+    backup="${ZSHRC}.bak-$(date +%Y%m%d%H%M%S)"
+    if ! cp -p "$ZSHRC" "$backup"; then
+        echo "  ${C_RED}✗ 备份失败，已中止（未做任何改动）${C_OFF}"
+        return 1
+    fi
+    echo "  已备份原文件到 ${backup}"
+
+    if [ ! -f "$ZSHRC_LOCAL" ]; then
+        {
+            echo "# ============================================================"
+            echo "# 本机专属 zsh 配置（不纳入 chezmoi）"
+            echo "# 由 ~/.zshrc 末尾的钩子加载；chezmoi apply 不会覆盖本文件。"
+            echo "# ============================================================"
+        } > "$ZSHRC_LOCAL"
+    fi
+
+    {
+        echo ""
+        echo "# --- 由 chezmoi-check 从 ~/.zshrc 迁入 ---"
+        printf '%s\n' "$extra"
+    } >> "$ZSHRC_LOCAL"
+
+    # 该文件已被本地改过，不加 --force 会停在 chezmoi 自己的交互询问上；
+    # 上面已经备份，且要写入的内容就是 chezmoi cat 打印的目标状态
+    if chezmoi apply --force "$ZSHRC"; then
+        echo "  ${C_GREEN}✓ 已搬到 ${ZSHRC_LOCAL}，${ZSHRC} 已恢复为仓库版本${C_OFF}"
+        echo "  ${C_CYAN}提示：新开一个终端确认功能正常；确认无误后可删除 ${backup}${C_OFF}"
+    else
+        echo "  ${C_RED}✗ apply 失败。原文件在 ${backup}，可用 cp 拷回${C_OFF}"
+        return 1
+    fi
+}
+
+# ------------------------------------------------------------
+# 检测 C：.zshrc.local 的健康度
+# 工具卸载后残留的 source 会让每次开终端都报错
+# ------------------------------------------------------------
+check_local_health() {
+    local target n_dead=0
+
+    [ -f "$ZSHRC_LOCAL" ] || return 0
+
+    # 取出 source / . 引用的路径，展开 $HOME 与 ~ 后检查是否存在
+    # 注意用 [[:space:]] 而非 \s：BSD sed/grep（macOS）不支持 \s
+    while IFS= read -r target; do
+        [ -n "$target" ] || continue
+        case "$target" in
+            \$HOME/*) target="$HOME/${target#\$HOME/}" ;;
+            '~'/*)    target="$HOME/${target#\~/}" ;;
+        esac
+        # 含未展开变量的路径无法静态判断，跳过
+        case "$target" in *'$'*) continue ;; esac
+        if [ ! -e "$target" ]; then
+            [ "$n_dead" -eq 0 ] && echo "" && \
+                echo "${C_BOLD}${C_YELLOW}● ${ZSHRC_LOCAL##*/}${C_OFF} 中有失效的 source 路径（会让每次开终端报错）："
+            echo "    $target"
+            n_dead=$((n_dead + 1))
+        fi
+    done < <(grep -hE '^[[:space:]]*(source|\.)[[:space:]]+' "$ZSHRC_LOCAL" 2>/dev/null \
+                | sed -E 's/^[[:space:]]*(source|\.)[[:space:]]+//' \
+                | sed -E 's/^"//; s/".*$//' \
+                | sed -E "s/^'//; s/'.*\$//" \
+                | sed -E 's/[[:space:]].*$//')
+
+    if [ "$n_dead" -gt 0 ]; then
+        FOUND=1
+        echo "  ${C_CYAN}处理：删掉对应行，或重新安装该工具${C_OFF}"
+    fi
+}
+
+# ------------------------------------------------------------
+main() {
+    echo "${C_BOLD}chezmoi-check${C_OFF} — 检查本地手改与安装器追加"
+    [ "$INTERACTIVE" -eq 1 ] || echo "${C_CYAN}(非交互模式：只报告，不询问)${C_OFF}"
+
+    check_modified
+    check_local_health
+
+    echo ""
+    if [ "$FOUND" -eq 0 ]; then
+        echo "${C_GREEN}✓ 没有需要处理的本地改动${C_OFF}"
+        exit 0
+    fi
+    echo "${C_YELLOW}发现需要处理的差异（见上）${C_OFF}"
+    exit 1
+}
+
+# 直接执行才跑 main；被 source 时只加载函数（便于测试时替换 ask 等）
+if [ "${BASH_SOURCE[0]:-$0}" = "$0" ]; then
+    main "$@"
+fi
