@@ -29,11 +29,14 @@
 {{- else }}
 	autocrlf = input
 {{- end }}
-{{- if .git.delta.enabled }}
+{{- /* delta 用 lookPath 在每次 apply 时检测：
+       首次 bootstrap 时 delta 尚未装，安装脚本装好后再跑一次 chezmoi apply 即自动补上，
+       无需 re-init（配置数据只在 init 时渲染，文件模板每次 apply 都重渲染） */ -}}
+{{- if lookPath "delta" }}
 	pager = delta
 {{- end }}
 
-{{- if .git.delta.enabled }}
+{{- if lookPath "delta" }}
 
 [interactive]
 	diffFilter = delta --color-only
@@ -41,7 +44,7 @@
 [delta]
 	navigate = true
 	light = false
-	side-by-side = {{ .git.delta.side_by_side }}
+	side-by-side = true
 	line-numbers = true
 {{- end }}
 
@@ -96,5 +99,5 @@
 	lg = log --oneline --graph --decorate --all
 	uncommit = reset --soft HEAD~1
 	amend = commit --amend --no-edit
-	# 显示已修改但未暂存的文件
+	# 把当前全部改动（含未跟踪文件）快速打成一个 WIP 提交
 	wip = !git add -A && git commit -m "WIP"
