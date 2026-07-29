@@ -123,10 +123,6 @@ set -g status-interval 5
 # 可选值: left (左对齐) / centre (居中) / right (右对齐)
 set -g status-justify centre
 
-# 状态栏左右两侧长度: 各 80 个字符
-set-option -g status-left-length "80"
-set-option -g status-right-length "80"
-
 # 活动通知: 监控窗口活动
 # 当其他窗口有输出时，当前窗口会显示通知标记
 setw -g monitor-activity on     # 开启活动监控
@@ -182,11 +178,14 @@ set -g @logging-filename "tmux-#{session_name}-#{window_name}-#{pane_index}.#{pa
 # tmux-resurrect - 会话持久化插件
 # 功能: 保存和恢复 tmux 会话 (包括窗口、面板、工作目录)
 # 快捷键:
-#   prefix + Ctrl-s : 手动保存当前所有会话
+#   prefix + S      : 手动保存当前所有会话
 #   prefix + Ctrl-r : 手动恢复上次保存的会话
 # 保存位置: ~/.tmux/resurrect/
 # ============================================================
 set -g @plugin 'tmux-plugins/tmux-resurrect'
+# 保存键改为大写 S: 插件默认的 prefix+Ctrl-s 与上面的 `bind C-s send-prefix` 冲突
+# (TPM 在配置末尾运行, 插件绑定会覆盖之前的 bind, 导致「按两次 Ctrl+s 发送 Ctrl+s」失效)
+set -g @resurrect-save 'S'
 # 恢复面板内容: 开启后会恢复面板中的历史输出
 # 注意: 会话越大恢复越慢，可根据需要关闭
 set -g @resurrect-capture-pane-contents 'on'
@@ -195,7 +194,7 @@ set -g @resurrect-capture-pane-contents 'on'
 # tmux-continuum - 自动保存/恢复插件
 # 功能: 定时自动保存会话，启动 tmux 时自动恢复
 # 依赖: tmux-resurrect
-# 注意: 首次使用时需手动保存一次 (prefix + Ctrl-s)
+# 注意: 首次使用时需手动保存一次 (prefix + S)
 #       否则会提示 "resurrect file not found"
 # ============================================================
 set -g @plugin 'tmux-plugins/tmux-continuum'
