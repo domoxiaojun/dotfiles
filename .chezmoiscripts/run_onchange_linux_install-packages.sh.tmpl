@@ -3,7 +3,8 @@
 # 此脚本在 Linux 上 chezmoi apply 时自动运行
 # 用于安装必要的工具和依赖
 # 支持: Fedora (dnf), Ubuntu/Debian (apt)
-# version: 3.0.0  - install_pkg 函数化 + zoxide + SHA 校验提示
+# version: 3.1.0  - 常规工具改为遍历 tools.yaml 生成（与 darwin/windows 一致），
+#                   deb release 版本号改经 302 重定向获取（免 GitHub API 限流）
 
 set -e
 
@@ -58,18 +59,27 @@ fi
 # 通用安装函数
 # ============================================================
 
-# 用法: install_pkg <command_to_check> <apt_pkg> <dnf_pkg>
-# 任一包名为 "" 表示该平台跳过
+# 用法: install_pkg <command_to_check> <apt_pkg> <dnf_pkg> [alt_command]
+# 包名为 "-" 或空表示该平台跳过；alt_command 是 Ubuntu 下不同的命令名（如 batcat/fdfind）
 install_pkg() {
-    local cmd="$1" apt_pkg="$2" dnf_pkg="$3"
+    local cmd="$1" apt_pkg="$2" dnf_pkg="$3" alt_cmd="${4:-}"
     if command -v "$cmd" &> /dev/null; then
         echo "   ✅ $cmd 已安装"
         return 0
     fi
-    echo "   安装 $cmd ..."
+    if [ -n "$alt_cmd" ] && [ "$alt_cmd" != "-" ] && command -v "$alt_cmd" &> /dev/null; then
+        echo "   ✅ $cmd 已安装 (命令名: $alt_cmd)"
+        return 0
+    fi
     case "$PKG_MANAGER" in
-        apt) [ -n "$apt_pkg" ] && sudo apt install -y "$apt_pkg" 2>/dev/null || true ;;
-        dnf) [ -n "$dnf_pkg" ] && sudo dnf install -y "$dnf_pkg" 2>/dev/null || true ;;
+        apt) if [ -n "$apt_pkg" ] && [ "$apt_pkg" != "-" ]; then
+                 echo "   安装 $cmd ($apt_pkg) ..."
+                 sudo apt install -y "$apt_pkg" 2>/dev/null || true
+             fi ;;
+        dnf) if [ -n "$dnf_pkg" ] && [ "$dnf_pkg" != "-" ]; then
+                 echo "   安装 $cmd ($dnf_pkg) ..."
+                 sudo dnf install -y "$dnf_pkg" 2>/dev/null || true
+             fi ;;
     esac
 }
 
@@ -77,9 +87,10 @@ install_pkg() {
 # 从 GitHub release 下载 deb 并 dpkg -i
 install_deb_from_release() {
     local repo="$1" name="$2" strip_v="${3:-1}"
-    local version=$(curl -s --connect-timeout 10 --max-time 30 \
-        "https://api.github.com/repos/$repo/releases/latest" | \
-        grep -o '"tag_name": "[^"]*"' | head -1 | cut -d'"' -f4)
+    # 经 releases/latest 的 302 重定向拿 tag，避开 GitHub API 匿名限流（60 次/小时）
+    local version
+    version=$(curl -fsSLI -o /dev/null -w '%{url_effective}' --connect-timeout 10 --max-time 30 \
+        "https://github.com/$repo/releases/latest" 2>/dev/null | sed 's#.*/tag/##')
     [ -n "$strip_v" ] && version="${version#v}"
     if [ -z "$version" ]; then
         echo "   ⚠️  无法获取 $name 最新版本号，跳过"; return 1
@@ -120,14 +131,33 @@ echo "📦 检查 Git..."
 install_pkg git git git
 
 # ============================================================
-# 基础工具
+# 脚本自身依赖（不在 tools.yaml 清单内）
 # ============================================================
 echo ""
-echo "📦 安装基础工具..."
+echo "📦 安装脚本依赖..."
 case "$PKG_MANAGER" in
-    apt) sudo apt install -y tmux fzf btop curl unzip fontconfig 2>/dev/null || true ;;
-    dnf) sudo dnf install -y tmux fzf btop curl unzip fontconfig 2>/dev/null || true ;;
+    apt) sudo apt install -y curl unzip fontconfig 2>/dev/null || true ;;
+    dnf) sudo dnf install -y curl unzip fontconfig 2>/dev/null || true ;;
 esac
+
+# ============================================================
+# 工具清单（由 .chezmoidata/tools.yaml 渲染生成，添加新工具改 yaml 即可；
+# yaml 变化会改变本脚本内容，从而触发 run_onchange 重跑）
+# 每行: <cmd> <apt_pkg> <dnf_pkg> <apt_cmd>，"-" 表示该字段为空
+# apt/dnf 均为 "-" 的工具由下方「特殊安装」各节处理
+# ============================================================
+echo ""
+echo "📦 安装工具清单 (tools.yaml)..."
+while read -r cmd apt_pkg dnf_pkg alt_cmd; do
+    [ -z "$cmd" ] && continue
+    install_pkg "$cmd" "$apt_pkg" "$dnf_pkg" "$alt_cmd"
+done <<'EOF'
+{{- range .toolList }}
+{{-   if .cmd }}
+{{ .cmd }} {{ .apt | default "-" }} {{ .dnf | default "-" }} {{ index . "apt_cmd" | default "-" }}
+{{-   end }}
+{{- end }}
+EOF
 
 # ============================================================
 # 剪贴板（仅桌面环境）
@@ -145,19 +175,21 @@ else
 fi
 
 # ============================================================
-# Ghostty（apt: 第三方脚本；dnf: COPR）
+# 特殊安装：以下各节处理 tools.yaml 中 apt/dnf 装不到的路径
+# （对应平台字段为空的工具；能用包管理器装的已由上方循环完成）
 # ============================================================
-# 安全提示：apt 路径使用 mkasberg/ghostty-ubuntu 第三方脚本，未做 SHA 校验
-# 如需严格校验，设置 DOTFILES_VERIFY=1 后人工核对脚本摘要
+
+# ============================================================
+# Ghostty（apt: 第三方脚本；dnf 已由 COPR + 工具清单循环安装）
+# ============================================================
+# 安全提示：apt 路径使用 mkasberg/ghostty-ubuntu 第三方脚本，未做 SHA 校验；
+# 如需校验，先手动下载 install.sh 审查内容后再执行
 echo ""
-if ! command -v ghostty &> /dev/null; then
+if ! command -v ghostty &> /dev/null && [ "$PKG_MANAGER" = "apt" ]; then
     echo "👻 安装 Ghostty..."
-    case "$PKG_MANAGER" in
-        apt) /bin/bash -c "$(curl -fsSL --connect-timeout 10 --max-time 120 https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)" || true ;;
-        dnf) sudo dnf install -y ghostty || true ;;
-    esac
+    /bin/bash -c "$(curl -fsSL --connect-timeout 10 --max-time 120 https://raw.githubusercontent.com/mkasberg/ghostty-ubuntu/HEAD/install.sh)" || true
 else
-    echo "✅ Ghostty 已安装"
+    echo "✅ Ghostty 已处理 (已安装或由包管理器安装)"
 fi
 
 # ============================================================
@@ -173,106 +205,51 @@ else
 fi
 
 # ============================================================
-# 包管理器可装的简单工具
-# ============================================================
-echo ""
-echo "📦 包管理器工具..."
-install_pkg rg ripgrep ripgrep
-install_pkg zoxide zoxide zoxide
-
-# ============================================================
 # gh (GitHub CLI)
-# Ubuntu: 通过 cli/cli 官方 apt 源
-# Fedora: dnf install gh
+# Ubuntu: 通过 cli/cli 官方 apt 源（universe 源版本偏旧，统一走官方源）
+# Fedora: 已由工具清单循环 dnf 安装
 # ============================================================
-if ! command -v gh &> /dev/null; then
+if ! command -v gh &> /dev/null && [ "$PKG_MANAGER" = "apt" ]; then
     echo ""
     echo "🐙 安装 gh (GitHub CLI)..."
-    case "$PKG_MANAGER" in
-        apt)
-            # 安全提示：cli/cli 官方源，未做 SHA 校验
-            sudo mkdir -p -m 755 /etc/apt/keyrings
-            curl -fsSL --connect-timeout 10 --max-time 30 https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
-                sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
-            sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | \
-                sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-            sudo apt update && sudo apt install -y gh || true
-            ;;
-        dnf) sudo dnf install -y gh || true ;;
-    esac
-else
-    echo "✅ gh 已安装"
-fi
-
-
-# bat：apt 的命令是 batcat，dnf 是 bat
-if ! command -v bat &> /dev/null && ! command -v batcat &> /dev/null; then
-    case "$PKG_MANAGER" in
-        apt) sudo apt install -y bat 2>/dev/null || true ;;
-        dnf) sudo dnf install -y bat 2>/dev/null || true ;;
-    esac
-else
-    echo "   ✅ bat 已安装"
-fi
-
-# fd：apt 包名 fd-find，命令名 fdfind
-if ! command -v fd &> /dev/null && ! command -v fdfind &> /dev/null; then
-    case "$PKG_MANAGER" in
-        apt) sudo apt install -y fd-find 2>/dev/null || true ;;
-        dnf) sudo dnf install -y fd-find 2>/dev/null || true ;;
-    esac
-else
-    echo "   ✅ fd 已安装"
+    # 安全提示：cli/cli 官方源，未做 SHA 校验
+    sudo mkdir -p -m 755 /etc/apt/keyrings
+    curl -fsSL --connect-timeout 10 --max-time 30 https://cli.github.com/packages/githubcli-archive-keyring.gpg | \
+        sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+    sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | \
+        sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+    sudo apt update && sudo apt install -y gh || true
 fi
 
 # ============================================================
-# delta（apt: GitHub deb，dnf: git-delta 包）
+# delta（apt: GitHub deb；dnf 已由工具清单循环安装 git-delta）
 # ============================================================
 echo ""
-if ! command -v delta &> /dev/null; then
+if ! command -v delta &> /dev/null && [ "$PKG_MANAGER" = "apt" ]; then
     echo "📊 安装 git-delta..."
-    case "$PKG_MANAGER" in
-        apt) install_deb_from_release "dandavison/delta" "git-delta" 1 ;;
-        dnf) sudo dnf install -y git-delta || true ;;
-    esac
-else
-    echo "✅ delta 已安装"
+    install_deb_from_release "dandavison/delta" "git-delta" 1
 fi
 
 # ============================================================
-# lsd（Ubuntu 通过 GitHub deb release）
+# lsd（apt: GitHub deb；dnf 已由工具清单循环安装）
 # ============================================================
-echo ""
-if ! command -v lsd &> /dev/null; then
+if ! command -v lsd &> /dev/null && [ "$PKG_MANAGER" = "apt" ]; then
     echo "📂 安装 lsd..."
-    case "$PKG_MANAGER" in
-        apt) install_deb_from_release "lsd-rs/lsd" "lsd" 1 ;;
-        dnf) sudo dnf install -y lsd || true ;;
-    esac
-else
-    echo "✅ lsd 已安装"
+    install_deb_from_release "lsd-rs/lsd" "lsd" 1
 fi
 
 # ============================================================
-# glow（Ubuntu 通过 charm.sh apt 源）
+# glow（apt: charm.sh 源；dnf 已由工具清单循环安装）
 # ============================================================
-echo ""
-if ! command -v glow &> /dev/null; then
+if ! command -v glow &> /dev/null && [ "$PKG_MANAGER" = "apt" ]; then
     echo "✨ 安装 glow..."
-    case "$PKG_MANAGER" in
-        apt)
-            sudo mkdir -p /etc/apt/keyrings
-            curl -fsSL --connect-timeout 10 --max-time 30 https://repo.charm.sh/apt/gpg.key | \
-                sudo gpg --batch --yes --dearmor -o /etc/apt/keyrings/charm.gpg
-            echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | \
-                sudo tee /etc/apt/sources.list.d/charm.list
-            sudo apt update && sudo apt install -y glow || true
-            ;;
-        dnf) sudo dnf install -y glow || true ;;
-    esac
-else
-    echo "✅ glow 已安装"
+    sudo mkdir -p /etc/apt/keyrings
+    curl -fsSL --connect-timeout 10 --max-time 30 https://repo.charm.sh/apt/gpg.key | \
+        sudo gpg --batch --yes --dearmor -o /etc/apt/keyrings/charm.gpg
+    echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" | \
+        sudo tee /etc/apt/sources.list.d/charm.list
+    sudo apt update && sudo apt install -y glow || true
 fi
 
 # ============================================================

@@ -1,12 +1,14 @@
 # =====================================================
 # 工具清单 - 跨平台共享数据源
 # =====================================================
+# 三个平台安装脚本 (.chezmoiscripts/) 均遍历此清单：
+#   darwin 用 brew 字段，linux 用 apt/dnf/apt_cmd 字段，windows 用 scoop 字段
 # 字段说明：
 #   cmd:        命令名（用于 lookPath / command -v 检测）
 #   brew:       Homebrew formula 名；空字符串表示 brew 无此包
-#   apt:        Ubuntu/Debian 包名；空字符串表示 apt 无此包，需特殊安装
+#   apt:        Ubuntu/Debian 包名；空字符串表示不走 apt install，由安装脚本特殊处理
 #   apt_cmd:    Ubuntu/Debian 命令名（仅当与 cmd 不同时，如 fdfind/batcat）
-#   dnf:        Fedora 包名
+#   dnf:        Fedora 包名；空字符串表示不走 dnf install，由安装脚本特殊处理
 #   scoop:      Scoop 包名（Windows）
 #   bucket:     Scoop bucket（默认 main，可填 extras 等）
 #   special:    特殊安装说明（仅文档用途，不影响逻辑）
@@ -124,7 +126,7 @@ toolList:
   - name: gh
     cmd: gh
     brew: gh
-    apt: gh
+    apt: ""
     dnf: gh
     scoop: gh
-    special: "Ubuntu 通过 cli/cli 官方 apt 源安装；GitHub CLI"
+    special: "Ubuntu 通过 cli/cli 官方 apt 源安装（universe 版本旧且 22.04 没有）；GitHub CLI"
